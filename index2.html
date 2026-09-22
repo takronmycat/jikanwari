@@ -1,4 +1,873 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>時間割 統合版</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body {
+      font-family: 'Inter', 'Noto Sans JP', sans-serif;
+    }
+    .tab-btn.active {
+      background-color: #1e293b;
+      color: #38bdf8;
+      border-bottom: 3px solid #38bdf8;
+    }
+    .tab-btn:not(.active) {
+      color: #94a3b8;
+    }
+    .tab-btn:not(.active):hover {
+      background-color: #334155;
+      color: #f1f5f9;
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 h-screen flex flex-col overflow-hidden w-full">
+
+  <header class="bg-slate-950 border-b border-slate-800 flex-shrink-0 flex items-center justify-between px-3 py-1.5 shadow-lg z-50">
+    <div class="flex items-center space-x-2">
+      <div class="bg-sky-500/20 p-1.5 rounded-lg border border-sky-500/30">
+        <i data-lucide="layout-grid" class="w-5 h-5 text-sky-400"></i>
+      </div>
+      <h1 class="text-sm font-bold text-white tracking-wide hidden sm:block">時間割 統合版</h1>
+    </div>
+
+    <!-- タブ切り替えボタン -->
+    <nav class="flex items-center space-x-1 sm:space-x-2 bg-slate-900 p-1 rounded-xl border border-slate-800">
+      <button onclick="switchTab(0)" id="tab-btn-0" class="tab-btn active px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5">
+        <i data-lucide="calendar-range" class="w-3.5 h-3.5"></i>
+        <span>教員週間一覧</span>
+      </button>
+      <button onclick="switchTab(1)" id="tab-btn-1" class="tab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5">
+        <i data-lucide="user" class="w-3.5 h-3.5"></i>
+        <span>教員別週間</span>
+      </button>
+      <button onclick="switchTab(2)" id="tab-btn-2" class="tab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5">
+        <i data-lucide="monitor" class="w-3.5 h-3.5"></i>
+        <span>全校時間割</span>
+      </button>
+      <button onclick="switchTab(3)" id="tab-btn-3" class="tab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5">
+        <i data-lucide="door-closed" class="w-3.5 h-3.5"></i>
+        <span>部屋別週間</span>
+      </button>
+    </nav>
+
+    <!-- アクティブタブ全画面表示ボタン -->
+    <button onclick="toggleFullscreen()" class="bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 border border-sky-400/40 shadow-sm">
+      <i data-lucide="maximize-2" class="w-3.5 h-3.5"></i>
+      <span class="hidden md:inline">タブ全画面化</span>
+    </button>
+  </header>
+
+  <!-- タブコンテンツエリア -->
+  <main id="main-container" class="flex-grow w-full h-full relative bg-black overflow-hidden">
+    <div id="tab-panel-0" class="tab-panel w-full h-full absolute inset-0">
+      <iframe id="iframe-0" class="w-full h-full border-0"></iframe>
+    </div>
+    <div id="tab-panel-1" class="tab-panel w-full h-full absolute inset-0 hidden">
+      <iframe id="iframe-1" class="w-full h-full border-0"></iframe>
+    </div>
+    <div id="tab-panel-2" class="tab-panel w-full h-full absolute inset-0 hidden">
+      <iframe id="iframe-2" class="w-full h-full border-0"></iframe>
+    </div>
+    <div id="tab-panel-3" class="tab-panel w-full h-full absolute inset-0 hidden">
+      <iframe id="iframe-3" class="w-full h-full border-0"></iframe>
+    </div>
+  </main>
+
+  <template id="template-html-0"><!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>教員時間割 週間一覧</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts (Inter & Noto Sans JP) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body {
+      font-family: 'Inter', 'Noto Sans JP', sans-serif;
+    }
+    
+    .vertical-header-text {
+      writing-mode: vertical-rl;
+      text-orientation: upright;
+      display: block;
+      margin: 0 auto;
+      text-align: start;
+      white-space: nowrap;
+      letter-spacing: 0.02em;
+      max-height: 100%;
+      overflow: hidden;
+      width: 1em;
+    }
+
+    .table-container {
+      cursor: grab;
+      user-select: none;
+    }
+    .table-container:active {
+      cursor: grabbing;
+    }
+
+    #timetableTable {
+      height: 100%;
+      table-layout: fixed;
+      width: 100%;
+      min-width: 100%;
+    }
+    
+    #timetableTable tbody tr {
+      min-height: 20px;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f1f1;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 h-screen flex flex-col overflow-hidden w-full max-w-full">
+
+  <header class="bg-gradient-to-r from-blue-700 to-indigo-800 text-white shadow-md z-40 shrink-0">
+    <div class="w-full px-4 py-2 flex flex-col lg:flex-row justify-between items-center gap-4">
+      
+      <div class="flex items-center space-x-3">
+        <div class="bg-white/10 p-1.5 rounded-lg">
+          <i data-lucide="calendar-range" class="w-4 h-4 text-sky-300"></i>
+        </div>
+        <div>
+          <h1 class="text-sm font-bold tracking-tight">教員時間割</h1>
+          <p class="text-[8px] text-blue-200 leading-none mt-0.5">週一覧（API自動連携版）</p>
+        </div>
+        <div id="syncIndicator" class="flex items-center gap-1 px-1.5 py-0.5 bg-emerald-600/30 border border-emerald-500/30 rounded text-emerald-200 text-[8px] font-semibold ml-2">
+          <span class="w-1 h-1 rounded-full bg-emerald-400 animate-pulse"></span>
+          同期中
+        </div>
+
+        <div id="timerDisplay" class="flex items-center gap-1 px-2 py-0.5 bg-blue-900/40 border border-blue-700/50 rounded text-blue-100 text-[10px] font-semibold ml-2" title="15分ごとに自動的に今週に戻って更新されます">
+          <i data-lucide="clock" class="w-3 h-3 text-sky-300"></i>
+          <span>自動更新まで: <span id="countdownText" class="font-mono text-sky-300 font-bold">15:00</span></span>
+        </div>
+      </div>
+      
+      <div class="flex flex-wrap items-center gap-3">
+        
+        <div class="flex items-center bg-white/10 rounded border border-white/20 p-0.5 space-x-1">
+          <button id="btnZoomOut" class="hover:bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded transition-all flex items-center gap-0.5" title="小さく表示">
+            <i data-lucide="zoom-out" class="w-3 h-3"></i> 小さく
+          </button>
+          <span id="zoomLevelText" class="text-[10px] text-blue-150 px-1.5 font-black bg-blue-900/40 rounded py-0.5">100%</span>
+          <button id="btnZoomIn" class="hover:bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded transition-all flex items-center gap-0.5" title="大きく表示">
+            <i data-lucide="zoom-in" class="w-3 h-3"></i> 大きく
+          </button>
+          <button id="btnZoomReset" class="hover:bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded transition-all" title="標準サイズに戻す">
+            元に戻す
+          </button>
+        </div>
+
+        <div class="flex items-center space-x-2">
+          <span class="text-xs font-semibold text-blue-100 whitespace-nowrap">週始め月曜えらび:</span>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none text-slate-400">
+              <i data-lucide="calendar" class="w-3 h-3 text-blue-500"></i>
+            </span>
+            <input type="date" id="baseDate" class="pl-7 pr-1 py-0.5 bg-white text-slate-800 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-[11px] font-bold w-32">
+          </div>
+        </div>
+
+        <button id="btnReturnToCurrent" class="bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-bold px-2.5 py-1 rounded transition-all flex items-center gap-1 border border-blue-500" title="現在の週の表示に戻します">
+          <i data-lucide="calendar-days" class="w-3.5 h-3.5"></i> 今週へ戻す
+        </button>
+
+        <button id="btnReload" class="bg-white/10 hover:bg-white/20 text-white text-[11px] font-semibold px-3 py-1 rounded transition-all flex items-center gap-1 border border-white/20">
+          <i data-lucide="refresh-cw" class="w-3 h-3"></i> 最新・更新
+        </button>
+
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-grow w-full mx-auto px-2 py-1.5 relative flex flex-col min-h-0 overflow-hidden">
+    
+    <div id="loadingOverlay" class="absolute inset-0 bg-slate-50/70 backdrop-blur-xs z-50 flex flex-col items-center justify-center">
+      <div class="bg-white p-5 rounded-xl shadow-xl border border-slate-100 flex flex-col items-center gap-3">
+        <div class="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        <div class="text-xs font-bold text-slate-700">スプレッドシートからデータを取得中...</div>
+      </div>
+    </div>
+
+    <div id="errorAlert" class="hidden mb-2 p-3 bg-red-50 border border-red-200 text-red-800 rounded-lg flex items-start gap-2.5">
+      <i data-lucide="alert-triangle" class="w-4 h-4 text-red-600 shrink-0 mt-0.5"></i>
+      <div>
+        <h4 class="font-bold text-xs">データ取得エラーが発生しました</h4>
+        <p id="errorMessage" class="text-[10px] text-red-600 mt-0.5 font-mono bg-white/50 p-1.5 rounded border border-red-100"></p>
+      </div>
+    </div>
+
+    <div id="mainViewport" class="bg-white rounded-lg shadow border border-slate-300 flex-grow flex flex-col min-h-0 overflow-hidden w-full max-w-full">
+      <div id="tableContainer" class="table-container overflow-x-auto overflow-y-auto flex-grow w-full max-w-full">
+        <table id="timetableTable" class="w-full border-collapse table-fixed text-center">
+          <thead>
+          </thead>
+          <tbody>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="bg-white border-t border-slate-200 py-0.5 shrink-0 text-center text-[10px] text-slate-400">
+  </footer>
+
+  <script>
+    const CONFIG = {
+      spreadsheetId: '17qPt1vJEMiE2I9SXRSHpPyyQFRJhwx2q0QWOGYRz3Oc',
+      sheetName: 'data',
+      teacherSheetName: '教員リスト'
+    };
+
+    let state = {
+      baseDate: "",
+      teachers: [],
+      slots: [],
+      zoom: 1.0,
+      specialDays: [false, false, false, false, false, false],
+      cDayTexts: ["", "", "", "", "", ""],
+      hasSaturday: false,
+      selectedTeacher: null,
+      selectedRow: null
+    };
+
+    const REFRESH_INTERVAL_SECONDS = 900;
+    let countdownTimer = null;
+    let timeRemaining = REFRESH_INTERVAL_SECONDS;
+
+    window.addEventListener("DOMContentLoaded", () => {
+      lucide.createIcons();
+      initBaseDate();
+      fetchServerData();
+      setupEventListeners();
+      setupDragScroll();
+    });
+
+    /* 共通日付正規化関数 (8桁数値 YYYYMMDD へ確実に変換) */
+    function parseDateTo8DigitKey(val) {
+      if (!val) return '';
+      const str = String(val).trim();
+
+      // Date(2026,8,9) 形式
+      const gvizMatch = str.match(/Date\((\d+),\s*(\d+),\s*(\d+)/i);
+      if (gvizMatch) {
+        const y = gvizMatch[1];
+        const m = String(parseInt(gvizMatch[2], 10) + 1).padStart(2, '0');
+        const d = String(parseInt(gvizMatch[3], 10)).padStart(2, '0');
+        return `${y}${m}${d}`;
+      }
+
+      // 2026/09/09, 2026-9-9 形式
+      const partsMatch = str.match(/(\d{4})[\/\-\.\s年]?(\d{1,2})[\/\-\.\s月]?(\d{1,2})/);
+      if (partsMatch) {
+        const y = partsMatch[1];
+        const m = String(parseInt(partsMatch[2], 10)).padStart(2, '0');
+        const d = String(parseInt(partsMatch[3], 10)).padStart(2, '0');
+        return `${y}${m}${d}`;
+      }
+
+      const digits = str.replace(/\D/g, '');
+      if (digits.length === 8) return digits;
+      return '';
+    }
+
+    function fetchSheetJsonp(sheetName) {
+      return new Promise((resolve, reject) => {
+        const callbackName = 'gviz_cb_' + Math.random().toString(36).substring(2, 9);
+        
+        window[callbackName] = function(json) {
+          delete window[callbackName];
+          const script = document.getElementById(callbackName);
+          if (script) script.remove();
+          
+          if (!json || !json.table || !json.table.rows) {
+            resolve([]);
+            return;
+          }
+          
+          const rows = json.table.rows.map(row => {
+            if (!row.c) return [];
+            return row.c.map(cell => {
+              if (!cell) return "";
+              if (cell.f !== null && cell.f !== undefined) return cell.f;
+              if (cell.v !== null && cell.v !== undefined) return cell.v;
+              return "";
+            });
+          });
+          resolve(rows);
+        };
+
+        const script = document.createElement('script');
+        script.id = callbackName;
+        script.src = `https://docs.google.com/spreadsheets/d/${CONFIG.spreadsheetId}/gviz/tq?tqx=responseHandler:${callbackName}&sheet=${encodeURIComponent(sheetName)}&_=${Date.now()}`;
+        script.onerror = (err) => {
+          delete window[callbackName];
+          if (script) script.remove();
+          reject(err);
+        };
+        document.body.appendChild(script);
+      });
+    }
+
+    function formatToJSTString(dateObj) {
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const date = String(dateObj.getDate()).padStart(2, '0');
+      return `${year}-${month}-${date}`;
+    }
+
+    function getMondayOfWeek(dateObj) {
+      const targetDate = new Date(dateObj.getTime());
+      const day = targetDate.getDay();
+      const diffToMonday = day === 0 ? -6 : 1 - day;
+      targetDate.setDate(targetDate.getDate() + diffToMonday);
+      return targetDate;
+    }
+
+    function initBaseDate() {
+      const today = new Date();
+      const day = today.getDay();
+      let targetMonday = new Date(today);
+
+      if (day >= 1 && day <= 5) {
+        targetMonday = getMondayOfWeek(today);
+      } else {
+        const offset = day === 6 ? 2 : 1;
+        targetMonday.setDate(today.getDate() + offset);
+        targetMonday = getMondayOfWeek(targetMonday);
+      }
+      
+      state.baseDate = formatToJSTString(targetMonday);
+      document.getElementById("baseDate").value = state.baseDate;
+    }
+
+    function resetCountdownTimer() {
+      if (countdownTimer) {
+        clearInterval(countdownTimer);
+      }
+      timeRemaining = REFRESH_INTERVAL_SECONDS;
+      updateCountdownDisplay();
+
+      countdownTimer = setInterval(() => {
+        timeRemaining--;
+        if (timeRemaining <= 0) {
+          initBaseDate();
+          fetchServerData();
+        } else {
+          updateCountdownDisplay();
+        }
+      }, 1000);
+    }
+
+    function updateCountdownDisplay() {
+      const mins = Math.floor(timeRemaining / 60);
+      const secs = timeRemaining % 60;
+      const displayMins = String(mins).padStart(2, '0');
+      const displaySecs = String(secs).padStart(2, '0');
+      
+      const countdownEl = document.getElementById("countdownText");
+      if (countdownEl) {
+        countdownEl.textContent = `${displayMins}:${displaySecs}`;
+      }
+    }
+
+    async function fetchServerData() {
+      showLoading(true);
+      hideError();
+      resetCountdownTimer();
+
+      try {
+        const [teacherRows, scheduleRows, cDayRows] = await Promise.all([
+          fetchSheetJsonp(CONFIG.teacherSheetName),
+          fetchSheetJsonp(CONFIG.sheetName),
+          fetchSheetJsonp('C日課判定')
+        ]);
+
+        const cDayMap = {};
+        if (Array.isArray(cDayRows)) {
+          cDayRows.forEach(row => {
+            const rawDateStr = String(row[0] || "").trim();
+            const textVal = String(row[3] || "").trim();
+            const dateKey = parseDateTo8DigitKey(rawDateStr);
+            if (dateKey && textVal) {
+              cDayMap[dateKey] = textVal;
+            }
+          });
+        }
+
+        const rawTeacherList = teacherRows
+          .map(row => String(row[0] || "").trim())
+          .filter(name => name.length > 0);
+
+        const headerKeywords = ["教員", "名前", "氏名", "教員名", "担当", "teacher", "name"];
+        const teacherList = (rawTeacherList.length > 0 && headerKeywords.some(kw => rawTeacherList[0].toLowerCase().includes(kw)))
+          ? rawTeacherList.slice(1)
+          : rawTeacherList;
+
+        const dataRows = (scheduleRows.length > 0 && String(scheduleRows[0][3] || "").includes("時限")) 
+          ? scheduleRows.slice(1) 
+          : scheduleRows;
+
+        const masterData = dataRows.map(row => {
+          const starMark = String(row[1] || "").trim();
+          const dateVal  = String(row[2] || "").trim();
+          const colD     = String(row[3] || "").trim();
+          const className= String(row[4] || "").trim();
+          const subject  = String(row[5] || "").trim();
+          const teachers = row.slice(11, 26).map(t => String(t || "").trim()).filter(Boolean);
+
+          const periodMatch = colD.match(/\d+/);
+          const period = periodMatch ? parseInt(periodMatch[0]) : null;
+
+          return {
+            dateKey: parseDateTo8DigitKey(dateVal),
+            period: period,
+            className: className,
+            subject: subject,
+            teachers: teachers,
+            hasStar: starMark === "☆",
+            isC: colD.startsWith("C")
+          };
+        }).filter(item => item.dateKey && item.period);
+
+        const baseMonday = new Date(state.baseDate.replace(/-/g, '/'));
+        const weekDates = [];
+        const specialDays = [false, false, false, false, false, false];
+        const cDayTexts = ["", "", "", "", "", ""];
+
+        for (let d = 0; d < 6; d++) {
+          const target = new Date(baseMonday);
+          target.setDate(baseMonday.getDate() + d);
+          
+          const yyyy = target.getFullYear();
+          const mm = String(target.getMonth() + 1).padStart(2, '0');
+          const dd = String(target.getDate()).padStart(2, '0');
+          const key = `${yyyy}${mm}${dd}`;
+          weekDates.push(key);
+
+          // C日課判定シートのD列（index 3）テキストのみを採用
+          if (cDayMap[key]) {
+            cDayTexts[d] = cDayMap[key];
+          }
+        }
+
+        const slots = [];
+        for (let d = 0; d < 6; d++) {
+          const key = weekDates[d];
+          const dayMatches = masterData.filter(item => item.dateKey === key);
+
+          // 後ろの行（最新）を優先してマトリクスを構成
+          dayMatches.forEach(item => {
+            item.teachers.forEach(teacherName => {
+              // 同一（日・時限・教員）のデータが既に存在する場合は上書き更新
+              const existingIdx = slots.findIndex(s => s.day === d && s.period === item.period && s.teacher === teacherName);
+              const slotItem = {
+                day: d,
+                period: item.period,
+                teacher: teacherName,
+                class: item.className,
+                subject: item.subject,
+                hasStar: item.hasStar
+              };
+              if (existingIdx !== -1) {
+                slots[existingIdx] = slotItem;
+              } else {
+                slots.push(slotItem);
+              }
+            });
+          });
+        }
+
+        const hasSatData = slots.some(s => s.day === 5);
+
+        state.teachers = teacherList.length > 0 ? teacherList : Array.from(new Set(slots.map(s => s.teacher)));
+        state.slots = slots;
+        state.specialDays = specialDays;
+        state.cDayTexts = cDayTexts;
+        state.hasSaturday = hasSatData;
+        showLoading(false);
+        render();
+
+      } catch (err) {
+        console.error("Data Load Error:", err);
+        showLoading(false);
+        showError("スプレッドシートデータの取得に失敗しました。接続を確認してください。");
+      }
+    }
+
+    function showLoading(isLoading) {
+      const overlay = document.getElementById("loadingOverlay");
+      if (isLoading) {
+        overlay.classList.remove("hidden");
+      } else {
+        overlay.classList.add("hidden");
+      }
+    }
+
+    function showError(msg) {
+      const alert = document.getElementById("errorAlert");
+      const text = document.getElementById("errorMessage");
+      const indicator = document.getElementById("syncIndicator");
+      
+      text.textContent = msg;
+      alert.classList.remove("hidden");
+
+      indicator.className = "flex items-center gap-1 px-2 py-0.5 bg-red-600/30 border border-red-500/30 rounded-md text-red-200 text-[9px] font-semibold ml-2";
+      indicator.innerHTML = `<span class="w-1 h-1 rounded-full bg-red-400"></span> エラー発生`;
+    }
+
+    function hideError() {
+      document.getElementById("errorAlert").classList.add("hidden");
+      const indicator = document.getElementById("syncIndicator");
+      indicator.className = "flex items-center gap-1 px-2 py-0.5 bg-emerald-600/30 border border-emerald-500/30 rounded-md text-emerald-200 text-[9px] font-semibold ml-2";
+      indicator.innerHTML = `<span class="w-1 h-1 rounded-full bg-emerald-400 animate-pulse"></span> 同期中`;
+    }
+
+    function setupEventListeners() {
+      document.getElementById("baseDate").addEventListener("change", (e) => {
+        const inputVal = e.target.value;
+        if (!inputVal) return;
+        
+        const selectedDate = new Date(inputVal.replace(/-/g, '/'));
+        const mondayDate = getMondayOfWeek(selectedDate);
+        const correctedDateStr = formatToJSTString(mondayDate);
+
+        state.baseDate = correctedDateStr;
+        e.target.value = correctedDateStr;
+        
+        fetchServerData();
+      });
+
+      document.getElementById("btnReturnToCurrent").addEventListener("click", () => {
+        initBaseDate();
+        document.getElementById("baseDate").value = state.baseDate;
+        fetchServerData();
+      });
+
+      document.getElementById("btnReload").addEventListener("click", () => {
+        fetchServerData();
+      });
+
+      document.getElementById("btnZoomIn").addEventListener("click", () => {
+        if (state.zoom < 2.0) {
+          state.zoom = parseFloat((state.zoom + 0.1).toFixed(1));
+          updateZoomUI();
+          render();
+        }
+      });
+
+      document.getElementById("btnZoomOut").addEventListener("click", () => {
+        if (state.zoom > 0.6) {
+          state.zoom = parseFloat((state.zoom - 0.1).toFixed(1));
+          updateZoomUI();
+          render();
+        }
+      });
+
+      document.getElementById("btnZoomReset").addEventListener("click", () => {
+        state.zoom = 1.0;
+        updateZoomUI();
+        render();
+      });
+    }
+
+    function updateZoomUI() {
+      document.getElementById("zoomLevelText").textContent = Math.round(state.zoom * 100) + "%";
+    }
+
+    function setupDragScroll() {
+      const container = document.getElementById("tableContainer");
+      let isDown = false;
+      let startX, startY, scrollLeft, scrollTop;
+
+      container.addEventListener("mousedown", (e) => {
+        if (e.target.closest("button, input, select")) return;
+
+        isDown = true;
+        container.style.cursor = "grabbing";
+        
+        startX = e.pageX - container.offsetLeft;
+        startY = e.pageY - container.offsetTop;
+        scrollLeft = container.scrollLeft;
+        scrollTop = container.scrollTop;
+      });
+
+      container.addEventListener("mouseleave", () => {
+        isDown = false;
+        container.style.cursor = "grab";
+      });
+
+      container.addEventListener("mouseup", () => {
+        isDown = false;
+        container.style.cursor = "grab";
+      });
+
+      container.addEventListener("mousemove", (e) => {
+        if (!isDown) return;
+        e.preventDefault();
+
+        const x = e.pageX - container.offsetLeft;
+        const y = e.pageY - container.offsetTop;
+        
+        const walkX = (x - startX) * 1.5;
+        const walkY = (y - startY) * 1.5;
+
+        container.scrollLeft = scrollLeft - walkX;
+        container.scrollTop = scrollTop - walkY;
+      });
+    }
+
+    function render() {
+      renderTimetableTable(state.teachers);
+    }
+
+    function renderTimetableTable(teachers) {
+      const table = document.getElementById("timetableTable");
+      const thead = table.querySelector("thead");
+      const tbody = table.querySelector("tbody");
+
+      thead.innerHTML = "";
+      tbody.innerHTML = "";
+
+      if (teachers.length === 0) {
+        tbody.innerHTML = `<tr><td class="p-8 text-slate-400 text-sm">該当する教員が見つかりません。</td></tr>`;
+        return;
+      }
+
+      const zoom = state.zoom;
+      
+      const dayWidth = Math.round(20 * zoom);
+      const periodWidth = Math.round(10 * zoom);
+      const teacherWidth = Math.round(19.8 * zoom);
+      const headerHeight = Math.round(30 * zoom);
+
+      const dayColStyle = `width: ${dayWidth}px; min-width: ${dayWidth}px; max-width: ${dayWidth}px;`;
+      const periodColStyle = `width: ${periodWidth}px; min-width: ${periodWidth}px; max-width: ${periodWidth}px;`;
+      const colStyle = `width: ${teacherWidth}px; min-width: ${teacherWidth}px; max-width: ${teacherWidth}px;`;
+
+      const headerRow = document.createElement("tr");
+      headerRow.className = "bg-slate-100 text-slate-800 font-bold border-t border-b-2 border-slate-400";
+      headerRow.style.height = `${headerHeight}px`;
+      
+      const thCorner = document.createElement("th");
+      thCorner.className = `sticky top-0 left-0 bg-slate-200 z-30 border-r-2 border-slate-400 align-middle text-center`;
+      thCorner.style.cssText = dayColStyle;
+      thCorner.innerHTML = `<span class="font-bold" style="font-size: ${Math.max(6, 9 * zoom)}px;">曜日</span>`;
+      headerRow.appendChild(thCorner);
+
+      const thCornerPeriod = document.createElement("th");
+      thCornerPeriod.className = `sticky top-0 bg-slate-200 z-30 border-r-2 border-slate-400 align-middle text-center`;
+      thCornerPeriod.style.cssText = `${periodColStyle} left: ${dayWidth}px;`;
+      thCornerPeriod.innerHTML = `<span class="font-bold" style="font-size: ${Math.max(6, 9 * zoom)}px;">校時</span>`;
+      headerRow.appendChild(thCornerPeriod);
+
+      teachers.forEach(tName => {
+        const th = document.createElement("th");
+        const tNameClean = tName.replace(/\s+/g, '');
+        const isSelected = state.selectedTeacher === tNameClean;
+
+        th.className = `sticky top-0 ${isSelected ? 'bg-rose-300' : 'bg-slate-100 hover:bg-slate-200'} z-20 border-r border-slate-400 align-top pt-0.5 text-center p-0 overflow-hidden cursor-pointer transition-colors`;
+        th.style.cssText = colStyle;
+        
+        th.innerHTML = `
+          <div class="vertical-header-text text-slate-900 font-extrabold" style="font-size: ${Math.max(8.0, 11 * zoom)}px;">
+            ${tNameClean}
+          </div>
+        `;
+
+        th.addEventListener("click", () => {
+          state.selectedTeacher = isSelected ? null : tNameClean;
+          render();
+        });
+
+        headerRow.appendChild(th);
+      });
+      thead.appendChild(headerRow);
+
+      const days = ["月", "火", "水", "木", "金", "土"];
+      const numDays = state.hasSaturday ? 6 : 5;
+      const totalRows = numDays * 6;
+      
+      const base = new Date(state.baseDate.replace(/-/g, '/'));
+      const trHeightStyle = `height: calc((100% - ${headerHeight}px) / ${totalRows});`;
+
+      for (let d = 0; d < numDays; d++) {
+        const targetDate = new Date(base);
+        targetDate.setDate(base.getDate() + d);
+        
+        const currentMonth = targetDate.getMonth() + 1;
+        const currentDay = targetDate.getDate();
+        
+        const specialOverrideVal = state.specialDays && state.specialDays[d];
+        
+        let dayLabel = days[d];
+        let isSpecialDay = false;
+
+        if (specialOverrideVal && specialOverrideVal !== "false" && specialOverrideVal !== false) {
+          isSpecialDay = true;
+          if (specialOverrideVal === true || specialOverrideVal === "C") {
+            dayLabel = "C";
+          } else {
+            dayLabel = String(specialOverrideVal);
+          }
+        }
+
+        const isSaturday = (d === 5);
+        const dayBgClass = isSpecialDay 
+          ? "bg-amber-100" 
+          : (isSaturday ? "bg-indigo-200" : ((d % 2 === 0) ? "bg-blue-200" : "bg-sky-200"));
+
+        for (let p = 1; p <= 6; p++) {
+          const rowKey = `${d}-${p}`;
+          const isRowSelected = state.selectedRow === rowKey;
+
+          const tr = document.createElement("tr");
+          const isDayEnd = p === 6;
+          const trBorderClass = isDayEnd ? "border-b-2 border-slate-500" : "border-b border-slate-400";
+          tr.className = `${trBorderClass} hover:bg-slate-50/50 transition-colors`;
+          tr.style.cssText = trHeightStyle;
+
+          if (p === 1) {
+            const tdDay = document.createElement("td");
+            tdDay.rowSpan = 6;
+            
+            const isCDay = state.specialDays[d];
+            // C日課判定シートのD列で設定されたテキストのみを表示
+            const cText = state.cDayTexts[d] || "";
+
+            const dayBgClass = cText 
+              ? "bg-amber-100" 
+              : (isSaturday ? "bg-indigo-200" : ((d % 2 === 0) ? "bg-blue-200" : "bg-sky-200"));
+
+            tdDay.className = `sticky left-0 ${dayBgClass} z-10 border-r-2 border-slate-400 align-middle shadow-[1px_0_3px_rgba(0,0,0,0.1)] p-0`;
+            tdDay.style.cssText = dayColStyle;
+            
+            /* バッジ装飾を廃止し、シンプルな赤太字テキストで表示 */
+            const cDayAddon = cText 
+              ? `<span class="text-red-600 font-extrabold text-[10px] mt-0.5 whitespace-nowrap">【${cText}】</span>` 
+              : '';
+
+            tdDay.innerHTML = `
+              <div class="flex flex-col items-center justify-center h-full text-slate-800 font-black select-none leading-none mx-auto" style="font-size: ${Math.max(8.5, (state.hasSaturday ? 11.5 : 13.5) * zoom)}px;">
+                <span>${currentMonth}</span>
+                <span class="mt-0.5">月</span>
+                <span class="mt-0.5 tracking-tighter">${currentDay}</span>
+                <span class="mt-0.5">日</span>
+                <span class="${isSaturday ? 'text-indigo-950 font-bold' : 'text-blue-950'} inline-block mt-1 whitespace-nowrap">(${days[d]})</span>
+                ${cDayAddon}
+              </div>
+            `;
+            tr.appendChild(tdDay);
+          }
+
+          const tdPeriod = document.createElement("td");
+          tdPeriod.className = `sticky ${isRowSelected ? 'bg-amber-300' : dayBgClass} hover:bg-amber-200 cursor-pointer z-10 font-black text-slate-800 border-r-2 border-slate-400 align-middle text-center shadow-[1px_0_3px_rgba(0,0,0,0.1)] p-0 transition-colors`;
+          tdPeriod.style.cssText = `${periodColStyle} left: ${dayWidth}px;`;
+          tdPeriod.title = `${days[d]}曜 ${p}時限目をハイライト`;
+          tdPeriod.innerHTML = `<span style="font-size: ${Math.max(5.5, (state.hasSaturday ? 8.5 : 10) * zoom)}px;">${p}</span>`;
+          
+          tdPeriod.addEventListener("click", () => {
+            state.selectedRow = isRowSelected ? null : rowKey;
+            render();
+          });
+
+          tr.appendChild(tdPeriod);
+
+          teachers.forEach(teacher => {
+            const td = document.createElement("td");
+            const teacherClean = teacher.replace(/\s+/g, '');
+            const isColumnSelected = state.selectedTeacher === teacherClean;
+
+            let bgClass = "";
+            if (isColumnSelected && isRowSelected) {
+              bgClass = "bg-rose-200/90 font-bold shadow-inner";
+            } else if (isColumnSelected) {
+              bgClass = "bg-rose-50/90 font-semibold";
+            } else if (isRowSelected) {
+              bgClass = "bg-amber-100/90 font-semibold";
+            }
+
+            td.className = `border-r border-slate-400 p-0 align-middle text-center cursor-pointer transition-colors ${bgClass}`;
+            td.style.cssText = colStyle;
+
+            td.addEventListener("click", () => {
+              if (state.selectedTeacher === teacherClean && state.selectedRow === rowKey) {
+                state.selectedTeacher = null;
+                state.selectedRow = null;
+              } else {
+                state.selectedTeacher = teacherClean;
+                state.selectedRow = rowKey;
+              }
+              render();
+            });
+
+            const match = state.slots.find(s => s.day === d && s.period === p && s.teacher === teacher);
+
+            if (match) {
+              const fontSizeClass = state.hasSaturday ? 7.0 : 8.0;
+              const subFontSizeClass = state.hasSaturday ? 6.2 : 7.0;
+
+              td.innerHTML = `
+                <div class="flex flex-col justify-center items-center h-full w-full py-0.5 leading-[1.1]">
+                  <div class="text-blue-950 font-black truncate w-full px-0 text-center tracking-[-0.08em]" style="font-size: ${Math.max(5.0, fontSizeClass * zoom)}px;" title="${match.class || ''}">
+                    ${match.class || '-'}
+                  </div>
+                  <div class="text-slate-900 font-bold truncate w-full px-0 text-center tracking-[-0.08em]" style="font-size: ${Math.max(4.5, subFontSizeClass * zoom)}px; margin-top: ${1 * zoom}px;" title="${match.subject || ''}">
+                    ${match.subject || '-'}
+                  </div>
+                </div>
+              `;
+
+              if (match.hasStar) {
+                if (!isColumnSelected && !isRowSelected) {
+                  td.style.backgroundColor = "#cbd5e1";
+                }
+                td.classList.add("font-bold");
+              }
+            } else {
+              td.innerHTML = `<span class="text-slate-200 leading-none" style="font-size: ${Math.max(4.5, 8 * zoom)}px;">•</span>`;
+            }
+            tr.appendChild(td);
+          });
+
+          tbody.appendChild(tr);
+        }
+      }
+    }
+  </script>
+</body>
+</html></template>
+
+  <template id="template-html-1"><!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
@@ -7,21 +876,22 @@
         :root {
             --bg: #000000;
             --card: #1a1a1a;
-            --accent: #f59e0b; /* 教員用はオレンジ系 */
+            --accent: #f59e0b;
             --text: #ffffff;
             --subject-normal: #ffffff;
-            --subject-changed: #ffd700; /* 変更(☆)用の黄色 */
+            --subject-changed: #ffd700;
         }
 
         body {
             margin: 0; background-color: var(--bg); color: var(--text);
             font-family: sans-serif; display: flex; flex-direction: column; height: 100vh;
+            overflow: hidden;
         }
 
         header {
             background-color: #0a0a0a; padding: 10px 20px;
             display: flex; justify-content: space-between; align-items: center;
-            border-bottom: 4px solid var(--accent);
+            border-bottom: 4px solid var(--accent); flex-shrink: 0;
         }
 
         select {
@@ -32,20 +902,20 @@
         .nav-buttons { display: flex; gap: 8px; }
         .nav-btn {
             background-color: #333; color: #fff; border: 1px solid var(--accent);
-            padding: 5px 15px; border-radius: 4px; cursor: pointer; font-size: 1vw;
+            padding: 5px 15px; border-radius: 4px; cursor: pointer; font-size: 1vw; font-weight: bold;
         }
 
         #grid-container {
             flex: 1; display: grid;
             grid-template-columns: 7vw repeat(6, 1fr);
             grid-template-rows: 6vh repeat(7, 1fr);
-            gap: 6px; padding: 10px;
+            gap: 6px; padding: 10px; min-height: 0;
         }
 
         .cell {
             background-color: var(--card); border-radius: 8px;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
-            text-align: center;
+            text-align: center; min-height: 0; padding: 2px;
         }
 
         .header-cell { background-color: #333; font-weight: bold; flex-direction: row; gap: 5px; }
@@ -83,54 +953,139 @@
 
 <script>
 const CONFIG = {
-    apiKey: 'AIzaSyDPVfkugEGBsIIM_tLYEynBvQhAzulnNSI',
-    spreadsheetId: '17qPt1vJEMiE2I9SXRSHpPyyQFRJhwx2q0QWOGYRz3Oc'
+    spreadsheetId: '17qPt1vJEMiE2I9SXRSHpPyyQFRJhwx2q0QWOGYRz3Oc',
+    sheetName: 'data',
+    teacherSheetName: '教員リスト'
 };
 
 let masterData = [];
 let weekOffset = 0;
 const dayLabels = ['日', '月', '火', '水', '木', '金', '土'];
 
+function parseDateTo8DigitKey(val) {
+    if (!val) return '';
+    const str = String(val).trim();
+
+    const gvizMatch = str.match(/Date\((\d+),\s*(\d+),\s*(\d+)/i);
+    if (gvizMatch) {
+        const y = gvizMatch[1];
+        const m = String(parseInt(gvizMatch[2], 10) + 1).padStart(2, '0');
+        const d = String(parseInt(gvizMatch[3], 10)).padStart(2, '0');
+        return `${y}${m}${d}`;
+    }
+
+    const partsMatch = str.match(/(\d{4})[\/\-\.\s年]?(\d{1,2})[\/\-\.\s月]?(\d{1,2})/);
+    if (partsMatch) {
+        const y = partsMatch[1];
+        const m = String(parseInt(partsMatch[2], 10)).padStart(2, '0');
+        const d = String(parseInt(partsMatch[3], 10)).padStart(2, '0');
+        return `${y}${m}${d}`;
+    }
+
+    const digits = str.replace(/\D/g, '');
+    if (digits.length === 8) return digits;
+    return '';
+}
+
+function fetchSheetJsonp(sheetName) {
+    return new Promise((resolve, reject) => {
+        const callbackName = 'gviz_cb_' + Math.random().toString(36).substring(2, 9);
+        
+        window[callbackName] = function(json) {
+            delete window[callbackName];
+            const script = document.getElementById(callbackName);
+            if (script) script.remove();
+            
+            if (!json || !json.table || !json.table.rows) {
+                resolve([]);
+                return;
+            }
+            
+            const rows = json.table.rows.map(row => {
+                if (!row.c) return [];
+                return row.c.map(cell => {
+                    if (!cell) return "";
+                    if (cell.f !== null && cell.f !== undefined) return cell.f;
+                    if (cell.v !== null && cell.v !== undefined) return cell.v;
+                    return "";
+                });
+            });
+            resolve(rows);
+        };
+
+        const script = document.createElement('script');
+        script.id = callbackName;
+        script.src = `https://docs.google.com/spreadsheets/d/${CONFIG.spreadsheetId}/gviz/tq?tqx=responseHandler:${callbackName}&sheet=${encodeURIComponent(sheetName)}&_=${Date.now()}`;
+        script.onerror = (err) => {
+            delete window[callbackName];
+            if (script) script.remove();
+            reject(err);
+        };
+        document.body.appendChild(script);
+    });
+}
+
 async function init() {
     await Promise.all([loadTeachers(), loadSchedule()]);
 }
 
-// 教員リストの読み込み (A:名前, B:教科)
 async function loadTeachers() {
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.spreadsheetId}/values/${encodeURIComponent('教員リスト!A2:B100')}?key=${CONFIG.apiKey}`;
-    const res = await fetch(url);
-    const data = await res.json();
-    if (data.values) {
+    try {
+        const rows = await fetchSheetJsonp(CONFIG.teacherSheetName);
         const select = document.getElementById('teacher-select');
-        data.values.forEach(row => {
-            const name = row[0];
-            const subject = row[1] || "";
+        
+        rows.forEach(row => {
+            const name = String(row[0] || "").trim();
+            const subject = String(row[1] || "").trim();
+            
             if (!name) return;
             const option = document.createElement('option');
             option.value = name;
-            option.textContent = `[${subject}] ${name}`;
+            option.textContent = subject ? `[${subject}] ${name}` : name;
             select.appendChild(option);
         });
+    } catch (err) {
+        console.error("教員リスト取得エラー:", err);
     }
 }
 
 async function loadSchedule() {
-    // A:Wを取得。B:星、C:日付、D:C判定、E:限、F:クラス、G:科目、I-W:教員
-    const range = `結合!A2:W20000`;
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.spreadsheetId}/values/${encodeURIComponent(range)}?valueRenderOption=UNFORMATTED_VALUE&key=${CONFIG.apiKey}`;
-    const res = await fetch(url);
-    const data = await res.json();
-    
-    if (data.values) {
-        masterData = data.values.map(row => ({
-            isChanged: String(row[1] || "").trim() === "☆",
-            dateKey: String(row[2] || "").replace(/\D/g, ''),
-            isC: String(row[3] || "").startsWith("C") || String(row[4] || "").startsWith("C"),
-            period: parseInt(String(row[4] || "").match(/\d+/)) || null,
-            className: String(row[5] || ""),
-            subject: String(row[6] || ""),
-            teachers: row.slice(8, 23).map(t => String(t || "").trim())
-        })).filter(item => item.dateKey && item.period);
+    try {
+        const [rows, cDayRows] = await Promise.all([
+            fetchSheetJsonp(CONFIG.sheetName),
+            fetchSheetJsonp('C日課判定')
+        ]);
+
+        window.cDayMap = {};
+        if (Array.isArray(cDayRows)) {
+            cDayRows.forEach(row => {
+                const rawDateStr = String(row[0] || "").trim();
+                const textVal = String(row[3] || "").trim();
+                const dateKey = parseDateTo8DigitKey(rawDateStr);
+                if (dateKey && textVal) {
+                    window.cDayMap[dateKey] = textVal;
+                }
+            });
+        }
+
+        const dataRows = (rows.length > 0 && String(rows[0][3] || "").includes("時限")) ? rows.slice(1) : rows;
+
+        masterData = dataRows.map(row => {
+            const colD = String(row[3] || "").trim();
+            const periodMatch = colD.match(/\d+/);
+            const period = periodMatch ? parseInt(periodMatch[0]) : null;
+
+            return {
+                isChanged: String(row[1] || "").trim() === "☆",
+                dateKey: parseDateTo8DigitKey(row[2]),
+                period: period,
+                className: String(row[4] || "").trim(),
+                subject: String(row[5] || "").trim(),
+                teachers: row.slice(11, 26).map(t => String(t || "").trim())
+            };
+        }).filter(item => item.dateKey && item.period);
+    } catch (err) {
+        console.error("時間割データ取得エラー:", err);
     }
 }
 
@@ -142,7 +1097,10 @@ function render() {
     const now = new Date();
     clock.innerText = now.toLocaleDateString('ja-JP', { month:'long', day:'numeric', weekday:'short' });
 
-    if (!targetTeacher) { container.innerHTML = ""; return; }
+    if (!targetTeacher) { 
+        container.innerHTML = ""; 
+        return; 
+    }
 
     const startOfWeek = new Date();
     const dayIdx = startOfWeek.getDay();
@@ -153,31 +1111,34 @@ function render() {
     let html = '<div class="cell header-cell">時限</div>';
     const weekKeys = [];
 
-    // ヘッダー生成
     for (let i = 0; i < 6; i++) {
         const d = new Date(startOfWeek);
         d.setDate(startOfWeek.getDate() + i);
-        const key = `${d.getFullYear()}${d.getMonth() + 1}${d.getDate()}`;
+        
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const date = String(d.getDate()).padStart(2, '0');
+        const key = `${year}${month}${date}`;
         weekKeys.push(key);
         
-        // その日の誰かの授業にC判定があるかチェック
-        const hasC = masterData.some(item => item.dateKey === key && item.isC);
-        const dayLabel = hasC ? "C" : dayLabels[d.getDay()];
+        const cDayText = (window.cDayMap && window.cDayMap[key]) ? window.cDayMap[key] : '';
+        const dayLabel = dayLabels[d.getDay()];
         const isToday = d.toDateString() === now.toDateString();
         
         html += `
             <div class="cell header-cell ${isToday ? 'is-today' : ''}">
                 <span class="header-date">${d.getMonth() + 1}/${d.getDate()}</span>
                 <span class="header-day">(${dayLabel})</span>
+                ${cDayText ? `<span style="font-size:0.8vw; background:#f59e0b; color:#000; padding:1px 4px; border-radius:3px; font-weight:bold;">${cDayText}</span>` : ''}
             </div>
         `;
     }
 
-    // 時間割本体
     for (let p = 1; p <= 7; p++) {
         html += `<div class="cell period-cell">${p}</div>`;
         weekKeys.forEach(key => {
-            const match = masterData.find(item => 
+            // 後ろ（最新行）優先で検索
+            const match = masterData.slice().reverse().find(item => 
                 item.dateKey === key && 
                 item.period === p && 
                 item.teachers.includes(targetTeacher)
@@ -202,5 +1163,1084 @@ function updateWeek(v) { weekOffset += v; render(); }
 function resetWeek() { weekOffset = 0; render(); }
 window.onload = init;
 </script>
+</body>
+</html></template>
+
+  <template id="template-html-2"><!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>全校 本日の時間割ダッシュボード</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="300">
+    <style>
+        :root {
+            --bg-color: #090d16;
+            --panel-bg: #111827;
+            --cell-bg: #1f2937;
+            --text-main: #f9fafb;
+            --text-sub: #9ca3af;
+            --border-color: #374151;
+            
+            --color-g3: #22c55e;
+            --color-g2: #ef4444;
+            --color-g1: #3b82f6;
+            --color-jh: #f97316;
+            
+            --subject-changed: #ffd700;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        header {
+            background-color: #030712;
+            padding: 8px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--border-color);
+            flex-shrink: 0;
+            height: 52px;
+        }
+
+        .header-title-group {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.3rem;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            background: linear-gradient(to right, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .date-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn {
+            background-color: #1f2937;
+            color: #f3f4f6;
+            border: 1px solid var(--border-color);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.2s;
+            min-height: 38px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .btn:hover {
+            background-color: #374151;
+            border-color: #6b7280;
+        }
+
+        input[type="date"] {
+            background-color: #1f2937;
+            color: #ffffff;
+            border: 1px solid var(--border-color);
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            outline: none;
+            min-height: 38px;
+        }
+
+        #clock-display {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #e5e7eb;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+
+        #dashboard-grid {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 8px;
+            padding: 8px;
+            min-height: 0;
+        }
+
+        .grade-panel {
+            background-color: var(--panel-bg);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+            min-width: 0;
+        }
+
+        .panel-header {
+            padding: 6px 12px;
+            font-weight: bold;
+            font-size: clamp(0.9rem, 1.2vw, 1.1rem);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid;
+            background-color: rgba(255, 255, 255, 0.03);
+            flex-shrink: 0;
+        }
+
+        .panel-g3 { border-color: var(--color-g3); }
+        .panel-g3 .panel-header { border-color: var(--color-g3); color: var(--color-g3); }
+
+        .panel-g2 { border-color: var(--color-g2); }
+        .panel-g2 .panel-header { border-color: var(--color-g2); color: var(--color-g2); }
+
+        .panel-g1 { border-color: var(--color-g1); }
+        .panel-g1 .panel-header { border-color: var(--color-g1); color: var(--color-g1); }
+
+        .panel-jh { border-color: var(--color-jh); }
+        .panel-jh .panel-header { border-color: var(--color-jh); color: var(--color-jh); }
+
+        .day-tag {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #e5e7eb;
+        }
+
+        /* 赤太字テキストスタイル */
+        .c-tag-highlight {
+            color: #ef4444;
+            font-weight: 800;
+            margin-left: 4px;
+        }
+
+        .table-container {
+            flex: 1;
+            display: grid;
+            grid-template-rows: minmax(1.5rem, 2rem) repeat(6, 1fr);
+            gap: 3px;
+            padding: 4px;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        .cell {
+            background-color: var(--cell-bg);
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 2px;
+            overflow: hidden;
+            word-break: break-all;
+            line-height: 1.15;
+            min-width: 0;
+        }
+
+        .header-cell {
+            background-color: #111827;
+            color: #d1d5db;
+            font-size: clamp(0.75rem, 1.05vw, 1.1rem);
+            font-weight: bold;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .period-cell {
+            background-color: #111827;
+            color: #9ca3af;
+            font-size: clamp(0.85rem, 1.2vw, 1.25rem);
+            font-weight: bold;
+        }
+
+        .subject-text {
+            font-size: clamp(0.75rem, 1.1vw, 1.25rem);
+            font-weight: 800;
+            width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .subject-normal {
+            color: var(--text-main);
+        }
+
+        .subject-changed {
+            color: var(--subject-changed);
+        }
+
+        .room-text {
+            font-size: clamp(0.6rem, 0.75vw, 0.85rem);
+            font-weight: 600;
+            color: #38bdf8;
+            margin-top: 2px;
+            background-color: rgba(0, 0, 0, 0.35);
+            padding: 1px 4px;
+            border-radius: 3px;
+            max-width: 98%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .empty-cell {
+            color: #4b5563;
+            font-weight: normal;
+            font-size: clamp(0.75rem, 1vw, 1rem);
+        }
+
+        @media (max-width: 1023px) {
+            body { 
+                overflow-y: auto; 
+                height: auto; 
+                min-height: 100vh;
+            }
+            header {
+                flex-wrap: wrap;
+                height: auto;
+                gap: 8px;
+                padding: 10px 14px;
+            }
+            .header-title-group {
+                width: 100%;
+                justify-content: space-between;
+            }
+            #dashboard-grid {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto;
+                overflow-y: visible;
+                height: auto;
+                gap: 12px;
+            }
+            .grade-panel {
+                min-height: 320px;
+            }
+            .table-container {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .subject-text { 
+                font-size: clamp(0.8rem, 2vw, 1.1rem); 
+                white-space: normal;
+            }
+            .room-text { 
+                font-size: clamp(0.65rem, 1.5vw, 0.8rem); 
+            }
+        }
+
+        @media (min-width: 1024px) and (max-height: 800px) {
+            header {
+                height: 46px;
+                padding: 4px 12px;
+            }
+            h1 { font-size: 1.1rem; }
+            .btn, input[type="date"] {
+                padding: 3px 8px;
+                min-height: 32px;
+                font-size: 0.8rem;
+            }
+            .panel-header { padding: 4px 10px; }
+            .subject-text { font-size: clamp(0.7rem, 1vw, 1.1rem); }
+            .room-text { font-size: clamp(0.55rem, 0.7vw, 0.75rem); margin-top: 1px; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-title-group">
+            <h1>全校 本日時間割</h1>
+            <div class="date-controls">
+                <button class="btn" onclick="adjustDate(-1)">前日</button>
+                <button class="btn" onclick="setToday()">今日</button>
+                <button class="btn" onclick="adjustDate(1)">翌日</button>
+                <input type="date" id="date-picker" onchange="onDatePicked()">
+            </div>
+        </div>
+        <div id="clock-display">----/--/-- (-) --:--</div>
+    </header>
+
+    <main id="dashboard-grid">
+        <div class="grade-panel panel-g3">
+            <div class="panel-header">
+                <span>高校3年</span>
+                <span class="day-tag" id="tag-g3">-</span>
+            </div>
+            <div class="table-container" id="grid-g3"></div>
+        </div>
+
+        <div class="grade-panel panel-g2">
+            <div class="panel-header">
+                <span>高校2年</span>
+                <span class="day-tag" id="tag-g2">-</span>
+            </div>
+            <div class="table-container" id="grid-g2"></div>
+        </div>
+
+        <div class="grade-panel panel-g1">
+            <div class="panel-header">
+                <span>高校1年</span>
+                <span class="day-tag" id="tag-g1">-</span>
+            </div>
+            <div class="table-container" id="grid-g1"></div>
+        </div>
+
+        <div class="grade-panel panel-jh">
+            <div class="panel-header">
+                <span>中学校</span>
+                <span class="day-tag" id="tag-jh">-</span>
+            </div>
+            <div class="table-container" id="grid-jh"></div>
+        </div>
+    </main>
+
+    <script>
+        const CONFIG = {
+            spreadsheetId: '17qPt1vJEMiE2I9SXRSHpPyyQFRJhwx2q0QWOGYRz3Oc',
+            sheetName: 'data'
+        };
+
+        const GRADE_CONFIG = {
+            g3: { title: '高校3年', classes: ['3A', '3B', '3C', '3D', '3E', '3F'] },
+            g2: { title: '高校2年', classes: ['2A', '2B', '2C', '2D', '2E', '2F'] },
+            g1: { title: '高校1年', classes: ['1A', '1B', '1C', '1D', '1E', '1F'] },
+            jh: { title: '中学校', classes: ['中1A', '中1B', '中2A', '中2B', '中3A', '中3B'] }
+        };
+
+        let masterData = [];
+        let currentDate = new Date();
+        const dayLabels = ['日', '月', '火', '水', '木', '金', '土'];
+
+        function parseDateTo8DigitKey(val) {
+            if (!val) return '';
+            const str = String(val).trim();
+
+            const gvizMatch = str.match(/Date\((\d+),\s*(\d+),\s*(\d+)/i);
+            if (gvizMatch) {
+                const y = gvizMatch[1];
+                const m = String(parseInt(gvizMatch[2], 10) + 1).padStart(2, '0');
+                const d = String(parseInt(gvizMatch[3], 10)).padStart(2, '0');
+                return `${y}${m}${d}`;
+            }
+
+            const partsMatch = str.match(/(\d{4})[\/\-\.\s年]?(\d{1,2})[\/\-\.\s月]?(\d{1,2})/);
+            if (partsMatch) {
+                const y = partsMatch[1];
+                const m = String(parseInt(partsMatch[2], 10)).padStart(2, '0');
+                const d = String(parseInt(partsMatch[3], 10)).padStart(2, '0');
+                return `${y}${m}${d}`;
+            }
+
+            const digits = str.replace(/\D/g, '');
+            if (digits.length === 8) return digits;
+            return '';
+        }
+
+        function fetchSheetJsonp(sheetName) {
+            return new Promise((resolve, reject) => {
+                const callbackName = 'gviz_cb_' + Math.random().toString(36).substring(2, 9);
+                
+                window[callbackName] = function(json) {
+                    delete window[callbackName];
+                    const script = document.getElementById(callbackName);
+                    if (script) script.remove();
+                    
+                    if (!json || !json.table || !json.table.rows) {
+                        resolve([]);
+                        return;
+                    }
+                    
+                    const rows = json.table.rows.map(row => {
+                        if (!row.c) return [];
+                        return row.c.map(cell => {
+                            if (!cell) return "";
+                            if (cell.f !== null && cell.f !== undefined) return cell.f;
+                            if (cell.v !== null && cell.v !== undefined) return cell.v;
+                            return "";
+                        });
+                    });
+                    resolve(rows);
+                };
+
+                const script = document.createElement('script');
+                script.id = callbackName;
+                script.src = `https://docs.google.com/spreadsheets/d/${CONFIG.spreadsheetId}/gviz/tq?tqx=responseHandler:${callbackName}&sheet=${encodeURIComponent(sheetName)}&_=${Date.now()}`;
+                script.onerror = (err) => {
+                    delete window[callbackName];
+                    if (script) script.remove();
+                    reject(err);
+                };
+                document.body.appendChild(script);
+            });
+        }
+
+        async function init() {
+            updateClock();
+            setInterval(updateClock, 1000);
+            syncDatePicker();
+            await fetchSpreadsheetData();
+        }
+
+        function updateClock() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const date = String(now.getDate()).padStart(2, '0');
+            const day = dayLabels[now.getDay()];
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            
+            document.getElementById('clock-display').innerText = `${year}/${month}/${date} (${day}) ${hours}:${minutes}`;
+        }
+
+        function syncDatePicker() {
+            const yyyy = currentDate.getFullYear();
+            const mm = String(currentDate.getMonth() + 1).padStart(2, '0');
+            const dd = String(currentDate.getDate()).padStart(2, '0');
+            document.getElementById('date-picker').value = `${yyyy}-${mm}-${dd}`;
+        }
+
+        function getDateKey(d) {
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${yyyy}${mm}${dd}`;
+        }
+
+        async function fetchSpreadsheetData() {
+            try {
+                /* C日課判定シートのD列のみを参照するように修正 */
+                const [rows, cDayRows] = await Promise.all([
+                    fetchSheetJsonp(CONFIG.sheetName),
+                    fetchSheetJsonp('C日課判定')
+                ]);
+
+                const cDayMap = {};
+                if (Array.isArray(cDayRows)) {
+                    cDayRows.forEach(row => {
+                        const rawDateStr = String(row[0] || "").trim();
+                        const textVal = String(row[3] || "").trim(); // D列
+                        const dateKey = parseDateTo8DigitKey(rawDateStr);
+                        if (dateKey && textVal) {
+                            cDayMap[dateKey] = textVal;
+                        }
+                    });
+                }
+
+                if (!rows || rows.length === 0) {
+                    masterData = [];
+                    renderAll();
+                    return;
+                }
+
+                const dataRows = (rows.length > 0 && String(rows[0][3] || "").includes("時限")) ? rows.slice(1) : rows;
+
+                masterData = dataRows.map(row => {
+                    const starMark = String(row[1] || "").trim();
+                    const dateVal  = String(row[2] || "").trim();
+                    const colD     = String(row[3] || "").trim();
+                    const className= String(row[4] || "").trim();
+                    const subject  = String(row[5] || "").trim();
+
+                    const roomVal  = [row[7], row[8], row[9]]
+                        .map(r => String(r || "").trim())
+                        .filter(Boolean)
+                        .join(" ");
+
+                    const periodMatch = colD.match(/\d+/);
+                    const period = periodMatch ? parseInt(periodMatch[0]) : null;
+
+                    return {
+                        dateKey: parseDateTo8DigitKey(dateVal),
+                        period: period,
+                        className: className,
+                        subject: subject,
+                        room: roomVal,
+                        isChanged: starMark === "☆"
+                    };
+                }).filter(item => item.dateKey && item.period && item.className && item.subject);
+
+                window.globalCDayMap = cDayMap;
+
+                renderAll();
+            } catch (err) {
+                console.error("Data Load Error:", err);
+            }
+        }
+
+        function renderAll() {
+            const targetKey = getDateKey(currentDate);
+
+            // C日課判定シートのD列（index 3）に設定されているテキストのみを参照
+            const cTextFromMap = window.globalCDayMap ? window.globalCDayMap[targetKey] : '';
+
+            const dayName = dayLabels[currentDate.getDay()];
+            const cTag = cTextFromMap ? `<span class="c-tag-highlight">【${cTextFromMap}】</span>` : '';
+
+            Object.keys(GRADE_CONFIG).forEach(gradeKey => {
+                const config = GRADE_CONFIG[gradeKey];
+                const container = document.getElementById(`grid-${gradeKey}`);
+                const tagEl = document.getElementById(`tag-${gradeKey}`);
+
+                tagEl.innerHTML = `${currentDate.getMonth() + 1}/${currentDate.getDate()} (${dayName}曜) ${cTag}`;
+
+                container.style.gridTemplateColumns = `minmax(2rem, 2.5rem) repeat(${config.classes.length}, 1fr)`;
+
+                let html = '<div class="cell header-cell">時</div>';
+                config.classes.forEach(cls => {
+                    html += `<div class="cell header-cell">${cls}</div>`;
+                });
+
+                for (let p = 1; p <= 6; p++) {
+                    html += `<div class="cell period-cell">${p}</div>`;
+                    config.classes.forEach(cls => {
+                        // シートの下部（最新行）を優先して取得
+                        const match = masterData.slice().reverse().find(item => 
+                            item.dateKey === targetKey && 
+                            item.period === p && 
+                            item.className === cls
+                        );
+
+                        if (match) {
+                            const clsName = match.isChanged ? 'subject-changed' : 'subject-normal';
+                            const star = match.isChanged ? '☆' : '';
+                            const roomBadge = match.room ? `<div class="room-text">${match.room}</div>` : '';
+                            
+                            html += `
+                                <div class="cell">
+                                    <div class="subject-text ${clsName}">${star}${match.subject}</div>
+                                    ${roomBadge}
+                                </div>
+                            `;
+                        } else {
+                            html += `<div class="cell empty-cell">-</div>`;
+                        }
+                    });
+                }
+                container.innerHTML = html;
+            });
+        }
+
+        function adjustDate(offset) {
+            currentDate.setDate(currentDate.getDate() + offset);
+            syncDatePicker();
+            renderAll();
+        }
+
+        function setToday() {
+            currentDate = new Date();
+            syncDatePicker();
+            renderAll();
+        }
+
+        function onDatePicked() {
+            const val = document.getElementById('date-picker').value;
+            if (val) {
+                currentDate = new Date(val + 'T00:00:00');
+                renderAll();
+            }
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html></template>
+
+  <template id="template-html-3"><!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>部屋別週間時間割</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="300">
+    <style>
+        :root {
+            --bg: #000000;
+            --card: #1a1a1a;
+            --accent: #a855f7;
+            --text: #ffffff;
+            --subject-normal: #ffffff;
+            --subject-changed: #ffd700;
+        }
+
+        body {
+            margin: 0; padding: 0;
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: "Helvetica Neue", Arial, sans-serif;
+            display: flex; flex-direction: column; height: 100vh;
+            overflow: hidden;
+        }
+
+        header {
+            background-color: #0a0a0a; padding: 10px 20px;
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 4px solid var(--accent); flex-shrink: 0;
+        }
+
+        .header-left { display: flex; align-items: center; gap: 20px; }
+        h1 { margin: 0; font-size: 2vw; color: var(--accent); }
+
+        select {
+            background: #222; color: #fff; border: 1px solid var(--accent);
+            padding: 6px 14px; font-size: 1.2vw; border-radius: 4px; cursor: pointer;
+            outline: none; font-weight: bold;
+        }
+
+        .nav-buttons { display: flex; gap: 10px; }
+        .nav-btn {
+            background-color: #333; color: #fff; border: 1px solid var(--accent);
+            padding: 5px 15px; border-radius: 4px; cursor: pointer;
+            font-size: 1.1vw; font-weight: bold;
+        }
+
+        #grid-container {
+            flex: 1; display: grid;
+            grid-template-columns: 7vw repeat(6, 1fr);
+            grid-template-rows: 6vh repeat(7, 1fr);
+            gap: 6px; padding: 10px; min-height: 0;
+        }
+
+        .cell {
+            background-color: var(--card); border-radius: 8px;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            text-align: center; min-height: 0; padding: 4px; overflow: hidden;
+        }
+
+        .header-cell { 
+            background-color: #333; 
+            font-weight: bold;
+            flex-direction: row; 
+            gap: 6px;
+        }
+        .header-date { font-size: 1.8vw; color: #ffffff; }
+        .header-day { font-size: 1.2vw; color: #aaa; }
+        .period-cell { background-color: #222; font-size: 2.5vw; font-weight: bold; color: var(--accent); }
+        
+        .subject { font-size: 1.5vw; font-weight: bold; line-height: 1.1; margin-bottom: 2px; width: 100%; word-break: break-all; }
+        .subject.normal { color: var(--subject-normal); }
+        .subject.changed { color: var(--subject-changed); } 
+        
+        .info-row { display: flex; flex-direction: column; gap: 1px; width: 100%; }
+        .class-name { font-size: 1.1vw; color: #3b82f6; font-weight: bold; }
+        .teacher-name { font-size: 0.9vw; color: #aaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        .header-cell.is-today { 
+            background-color: #1e293b; 
+            box-shadow: inset 0 0 0 2px var(--accent); 
+        }
+
+        #current-clock { font-size: 1.8vw; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-left">
+            <h1 id="header-title">部屋別スケジュール</h1>
+            <select id="room-select" onchange="render()">
+                <option value="">部屋読込中...</option>
+            </select>
+            <div class="nav-buttons">
+                <button class="nav-btn" onclick="updateWeek(-1)">前週</button>
+                <button class="nav-btn" onclick="resetWeek()">今週</button>
+                <button class="nav-btn" onclick="updateWeek(1)">次週</button>
+            </div>
+        </div>
+        <div id="current-clock"></div>
+    </header>
+
+    <div id="grid-container"></div>
+
+    <script>
+        const CONFIG = {
+            spreadsheetId: '17qPt1vJEMiE2I9SXRSHpPyyQFRJhwx2q0QWOGYRz3Oc',
+            dataSheetName: 'data',
+            roomSheetName: '部屋リスト'
+        };
+
+        let masterData = []; 
+        let roomList = [];
+        let weekOffset = 0;
+        const dayLabels = ['日', '月', '火', '水', '木', '金', '土'];
+
+        function parseDateTo8DigitKey(val) {
+            if (!val) return '';
+            const str = String(val).trim();
+
+            const gvizMatch = str.match(/Date\((\d+),\s*(\d+),\s*(\d+)/i);
+            if (gvizMatch) {
+                const y = gvizMatch[1];
+                const m = String(parseInt(gvizMatch[2], 10) + 1).padStart(2, '0');
+                const d = String(parseInt(gvizMatch[3], 10)).padStart(2, '0');
+                return `${y}-${m}-${d}`;
+            }
+
+            const partsMatch = str.match(/(\d{4})[\/\-\.\s年]?(\d{1,2})[\/\-\.\s月]?(\d{1,2})/);
+            if (partsMatch) {
+                const y = partsMatch[1];
+                const m = String(parseInt(partsMatch[2], 10)).padStart(2, '0');
+                const d = String(parseInt(partsMatch[3], 10)).padStart(2, '0');
+                return `${y}-${m}-${d}`;
+            }
+
+            const digits = str.replace(/\D/g, '');
+            if (digits.length === 8) {
+                return `${digits.slice(0,4)}-${digits.slice(4,6)}-${digits.slice(6,8)}`;
+            }
+            return str;
+        }
+
+        async function fetchSpreadsheetRows(sheetName) {
+            const baseUrl = `https://docs.google.com/spreadsheets/d/${CONFIG.spreadsheetId}/gviz/tq?sheet=${encodeURIComponent(sheetName)}&_=${Date.now()}`;
+            
+            try {
+                const res = await fetch(`${baseUrl}&tq=${encodeURIComponent('select * limit 100000')}`);
+                if (res.ok) {
+                    const text = await res.text();
+                    const jsonStr = text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1);
+                    const json = JSON.parse(jsonStr);
+                    if (json && json.table && json.table.rows) {
+                        return extract2DArray(json.table.rows);
+                    }
+                }
+            } catch (e) {
+                console.warn(`Direct fetch failed for sheet: ${sheetName}`, e);
+            }
+
+            try {
+                const rows = await new Promise((resolve, reject) => {
+                    const cbName = 'gviz_cb_' + Math.random().toString(36).substring(2, 9);
+                    const script = document.createElement('script');
+                    const timeout = setTimeout(() => {
+                        cleanup();
+                        reject(new Error("Timeout"));
+                    }, 5000);
+
+                    function cleanup() {
+                        clearTimeout(timeout);
+                        delete window[cbName];
+                        if (script.parentNode) script.parentNode.removeChild(script);
+                    }
+
+                    window[cbName] = function(json) {
+                        cleanup();
+                        if (json && json.table && json.table.rows) {
+                            resolve(extract2DArray(json.table.rows));
+                        } else {
+                            reject(new Error("Invalid format"));
+                        }
+                    };
+
+                    script.src = `${baseUrl}&tqx=responseHandler:${cbName}&tq=${encodeURIComponent('select * limit 100000')}`;
+                    script.onerror = () => { cleanup(); reject(new Error("Script error")); };
+                    document.body.appendChild(script);
+                });
+                return rows;
+            } catch (e) {
+                console.warn(`JSONP fallback failed for sheet: ${sheetName}`, e);
+            }
+
+            return [];
+        }
+
+        function extract2DArray(rows) {
+            return rows.map(row => {
+                if (!row || !row.c) return [];
+                return row.c.map(cell => {
+                    if (!cell) return "";
+                    if (cell.f !== null && cell.f !== undefined) return String(cell.f);
+                    if (cell.v !== null && cell.v !== undefined) return String(cell.v);
+                    return "";
+                });
+            });
+        }
+
+        function normalizeDateStr(y, m, d) {
+            const year = String(y);
+            const month = String(m).padStart(2, '0');
+            const day = String(d).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        async function init() {
+            try {
+                const [dataRows, roomRows, cDayRows] = await Promise.all([
+                    fetchSpreadsheetRows(CONFIG.dataSheetName),
+                    fetchSpreadsheetRows(CONFIG.roomSheetName),
+                    fetchSpreadsheetRows('C日課判定')
+                ]);
+
+                window.roomCDayMap = {};
+                if (Array.isArray(cDayRows)) {
+                    cDayRows.forEach(row => {
+                        const rawDateStr = String(row[0] || "").trim();
+                        const textVal = String(row[3] || "").trim();
+                        const dateKey = parseDateTo8DigitKey(rawDateStr);
+                        if (dateKey && textVal) {
+                            window.roomCDayMap[dateKey] = textVal;
+                        }
+                    });
+                }
+
+                masterData = [];
+                dataRows.forEach(row => {
+                    if (!row || row.length < 5) return;
+
+                    const starMark  = String(row[1] || "").trim();
+                    const dateVal   = String(row[2] || "").trim();
+                    const periodStr = String(row[3] || "").trim();
+                    const periodMatch = periodStr.match(/\d+/);
+                    const period = periodMatch ? parseInt(periodMatch[0], 10) : null;
+                    const dateKey = parseDateTo8DigitKey(dateVal);
+
+                    if (dateKey && period) {
+                        const teachers = row.slice(11, 26)
+                            .map(t => String(t || "").trim())
+                            .filter(t => t !== "");
+
+                        const rooms = [row[7], row[8], row[9]]
+                            .map(r => String(r || "").trim())
+                            .filter(r => r !== "");
+
+                        masterData.push({
+                            isChanged: starMark === "☆" || starMark.includes("☆"),
+                            dateKey: dateKey,
+                            period: period,
+                            className: String(row[4] || "").trim(),
+                            subject: String(row[5] || "").trim(),
+                            teacher: teachers.join(' / '),
+                            rooms: rooms
+                        });
+                    }
+                });
+
+                roomList = [];
+                if (roomRows && roomRows.length > 0) {
+                    roomRows.forEach(r => {
+                        const roomName = String(r[0] || "").trim();
+                        if (roomName && roomName !== "部屋名" && roomName !== "部屋") {
+                            roomList.push(roomName);
+                        }
+                    });
+                }
+
+                if (roomList.length === 0) {
+                    const roomSet = new Set();
+                    masterData.forEach(d => d.rooms.forEach(r => roomSet.add(r)));
+                    roomList = Array.from(roomSet).sort();
+                }
+
+                const select = document.getElementById('room-select');
+                select.innerHTML = '<option value="">部屋を選択</option>';
+                roomList.forEach(room => {
+                    const opt = document.createElement('option');
+                    opt.value = room;
+                    opt.textContent = room;
+                    select.appendChild(opt);
+                });
+
+                if (roomList.length > 0) {
+                    select.value = roomList[0];
+                }
+
+                autoSetInitialWeek();
+                render();
+            } catch (err) {
+                console.error("Init Error:", err);
+                document.getElementById('header-title').innerText = "接続エラー";
+            }
+        }
+
+        function autoSetInitialWeek() {
+            if (masterData.length === 0) return;
+            const now = new Date();
+            const todayKey = normalizeDateStr(now.getFullYear(), now.getMonth() + 1, now.getDate());
+
+            const sortedKeys = Array.from(new Set(masterData.map(d => d.dateKey))).sort();
+            const futureKey = sortedKeys.find(k => k >= todayKey) || sortedKeys[sortedKeys.length - 1];
+
+            if (futureKey) {
+                const parts = futureKey.split('-');
+                const targetDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+                
+                const nowDay = now.getDay();
+                const nowStart = new Date(now);
+                nowStart.setDate(now.getDate() - (nowDay === 0 ? 6 : nowDay - 1));
+                nowStart.setHours(0,0,0,0);
+
+                const targetDay = targetDate.getDay();
+                const targetStart = new Date(targetDate);
+                targetStart.setDate(targetDate.getDate() - (targetDay === 0 ? 6 : targetDay - 1));
+                targetStart.setHours(0,0,0,0);
+
+                const diffMs = targetStart.getTime() - nowStart.getTime();
+                weekOffset = Math.round(diffMs / (7 * 24 * 60 * 60 * 1000));
+            }
+        }
+
+        function render() {
+            const targetRoom = document.getElementById('room-select').value;
+            const container = document.getElementById('grid-container');
+            const now = new Date();
+            
+            document.getElementById('current-clock').innerText = now.toLocaleDateString('ja-JP', { 
+                month:'long', day:'numeric', weekday:'short' 
+            });
+
+            if (!targetRoom) {
+                container.innerHTML = '<div style="grid-column: 1 / -1; display: flex; justify-content: center; align-items: center; font-size: 1.5vw; color: #666;">部屋を選択してください</div>';
+                return;
+            }
+
+            const startOfWeek = new Date();
+            const dayIdx = startOfWeek.getDay();
+            const diff = (dayIdx === 0 ? -6 : 1 - dayIdx) + (weekOffset * 7);
+            startOfWeek.setDate(startOfWeek.getDate() + diff);
+            startOfWeek.setHours(0,0,0,0);
+
+            let html = '<div class="cell header-cell"><div class="header-date" style="font-size:1.2vw">時限</div></div>';
+            const weekKeys = [];
+
+            for (let i = 0; i < 6; i++) {
+                const d = new Date(startOfWeek);
+                d.setDate(startOfWeek.getDate() + i);
+                
+                const key = normalizeDateStr(d.getFullYear(), d.getMonth() + 1, d.getDate());
+                weekKeys.push(key);
+
+                // 日付キー（YYYYMMDD形式に変換）でC日課判定シートのD列の値を検索
+                const rawKey = key.replace(/-/g, '');
+                const cDayText = (window.roomCDayMap && (window.roomCDayMap[key] || window.roomCDayMap[rawKey])) ? (window.roomCDayMap[key] || window.roomCDayMap[rawKey]) : '';
+                const dayLabel = dayLabels[d.getDay()];
+                const isToday = d.toDateString() === now.toDateString();
+                
+                html += `
+                    <div class="cell header-cell ${isToday ? 'is-today' : ''}">
+                        <span class="header-date">${d.getMonth() + 1}/${d.getDate()}</span>
+                        <span class="header-day">(${dayLabel})</span>
+                        ${cDayText ? `<span style="font-size:0.8vw; background:#a855f7; color:#fff; padding:1px 4px; border-radius:3px; font-weight:bold;">${cDayText}</span>` : ''}
+                    </div>
+                `;
+            }
+
+            for (let p = 1; p <= 7; p++) {
+                html += `<div class="cell period-cell">${p}</div>`;
+                weekKeys.forEach(key => {
+                    // 最新行（後勝）優先でマッチ
+                    const match = masterData.slice().reverse().find(item => 
+                        item.dateKey === key && 
+                        item.period === p && 
+                        item.rooms.includes(targetRoom)
+                    );
+
+                    let content = '';
+                    if (match) {
+                        const classAttr = match.isChanged ? 'subject changed' : 'subject normal';
+                        const text = match.isChanged ? '☆' + match.subject : match.subject;
+                        content = `
+                            <div class="${classAttr}">${text}</div>
+                            <div class="info-row">
+                                <div class="class-name">${match.className}</div>
+                                <div class="teacher-name" title="${match.teacher}">${match.teacher}</div>
+                            </div>
+                        `;
+                    }
+                    html += `<div class="cell">${content}</div>`;
+                });
+            }
+            container.innerHTML = html;
+        }
+
+        function updateWeek(val) { weekOffset += val; render(); }
+        function resetWeek() { weekOffset = 0; render(); }
+        window.onload = init;
+    </script>
+</body>
+</html></template>
+
+  <script>
+    let activeTabIndex = 0;
+    const loadedIframes = [false, false, false, false];
+
+    function loadTabContent(index) {
+      if (loadedIframes[index]) return;
+      
+      const iframe = document.getElementById(`iframe-${index}`);
+      const template = document.getElementById(`template-html-${index}`);
+      
+      if (iframe && template) {
+        iframe.srcdoc = template.innerHTML;
+        loadedIframes[index] = true;
+      }
+    }
+
+    function switchTab(index) {
+      activeTabIndex = index;
+
+      for (let i = 0; i < 4; i++) {
+        const btn = document.getElementById(`tab-btn-${i}`);
+        const panel = document.getElementById(`tab-panel-${i}`);
+
+        if (i === index) {
+          btn.classList.add('active');
+          panel.classList.remove('hidden');
+          loadTabContent(i);
+        } else {
+          btn.classList.remove('active');
+          panel.classList.add('hidden');
+        }
+      }
+    }
+
+    /**
+     * 現在アクティブなタブ画面（またはコンテナ）を全画面化（Fullscreen API）
+     */
+    function toggleFullscreen() {
+      const activePanel = document.getElementById(`tab-panel-${activeTabIndex}`);
+      if (!activePanel) return;
+
+      if (!document.fullscreenElement) {
+        if (activePanel.requestFullscreen) {
+          activePanel.requestFullscreen();
+        } else if (activePanel.webkitRequestFullscreen) { /* Safari */
+          activePanel.webkitRequestFullscreen();
+        } else if (activePanel.msRequestFullscreen) { /* IE11 */
+          activePanel.msRequestFullscreen();
+        }
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      switchTab(0); // 初期タブ（教員週間一覧）を表示
+    });
+  </script>
 </body>
 </html>
