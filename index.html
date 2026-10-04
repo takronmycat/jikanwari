@@ -86,13 +86,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>教員時間割 週間一覧</title>
-  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Google Fonts (Inter & Noto Sans JP) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
-  <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
   <style>
     body {
@@ -173,6 +170,19 @@
       
       <div class="flex flex-wrap items-center gap-3">
         
+        <div class="flex items-center space-x-2 text-xs text-blue-100">
+          <span class="font-semibold whitespace-nowrap">所属:</span>
+          <select id="affiliationFilter" class="bg-white text-slate-800 rounded px-1.5 py-0.5 text-[11px] font-bold focus:outline-none">
+            <option value="">すべて</option>
+            <option value="一高">一高</option>
+            <option value="附属中">附属中</option>
+          </select>
+          <span class="font-semibold whitespace-nowrap">教科:</span>
+          <select id="subjectFilter" class="bg-white text-slate-800 rounded px-1.5 py-0.5 text-[11px] font-bold focus:outline-none">
+            <option value="">すべて</option>
+          </select>
+        </div>
+
         <div class="flex items-center bg-white/10 rounded border border-white/20 p-0.5 space-x-1">
           <button id="btnZoomOut" class="hover:bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded transition-all flex items-center gap-0.5" title="小さく表示">
             <i data-lucide="zoom-out" class="w-3 h-3"></i> 小さく
@@ -250,6 +260,7 @@
 
     let state = {
       baseDate: "",
+      allTeachers: [],
       teachers: [],
       slots: [],
       zoom: 1.0,
@@ -272,12 +283,38 @@
       setupDragScroll();
     });
 
-    /* 共通日付正規化関数 (8桁数値 YYYYMMDD へ確実に変換) */
+    function aggregateClassNames(classList) {
+      const unique = [];
+      classList.forEach(c => {
+        if (c && !unique.includes(c)) {
+          unique.push(c);
+        }
+      });
+      if (unique.length === 0) return "";
+      unique.sort();
+      if (unique.length === 1) return unique[0];
+
+      let prefix = unique[0];
+      for (let i = 1; i < unique.length; i++) {
+        while (unique[i].indexOf(prefix) !== 0) {
+          prefix = prefix.substring(0, prefix.length - 1);
+          if (prefix === "") break;
+        }
+      }
+
+      if (prefix.length > 0) {
+        const suffixes = unique.map(c => c.slice(prefix.length));
+        if (suffixes.every(s => s.length > 0)) {
+          return prefix + suffixes.join('');
+        }
+      }
+      return unique.join('');
+    }
+
     function parseDateTo8DigitKey(val) {
       if (!val) return '';
       const str = String(val).trim();
 
-      // Date(2026,8,9) 形式
       const gvizMatch = str.match(/Date\((\d+),\s*(\d+),\s*(\d+)/i);
       if (gvizMatch) {
         const y = gvizMatch[1];
@@ -286,7 +323,6 @@
         return `${y}${m}${d}`;
       }
 
-      // 2026/09/09, 2026-9-9 形式
       const partsMatch = str.match(/(\d{4})[\/\-\.\s年]?(\d{1,2})[\/\-\.\s月]?(\d{1,2})/);
       if (partsMatch) {
         const y = partsMatch[1];
@@ -400,6 +436,36 @@
       }
     }
 
+    function populateSubjectFilterOptions() {
+      const subjectSelect = document.getElementById("subjectFilter");
+      if (!subjectSelect) return;
+      const currentVal = subjectSelect.value;
+      subjectSelect.innerHTML = '<option value="">すべて</option>';
+      const subjects = Array.from(new Set(state.allTeachers.map(t => t.subject).filter(Boolean)));
+      subjects.forEach(subj => {
+        const opt = document.createElement("option");
+        opt.value = subj;
+        opt.textContent = subj;
+        subjectSelect.appendChild(opt);
+      });
+      subjectSelect.value = currentVal;
+    }
+
+    function filterTeachers() {
+      const aff = document.getElementById("affiliationFilter") ? document.getElementById("affiliationFilter").value : "";
+      const subj = document.getElementById("subjectFilter") ? document.getElementById("subjectFilter").value : "";
+
+      return state.allTeachers.filter(t => {
+        if (aff === "一高") {
+          if (t.affiliation !== "" && t.affiliation !== "兼務") return false;
+        } else if (aff === "附属中") {
+          if (t.affiliation !== "附属中" && t.affiliation !== "兼務") return false;
+        }
+        if (subj && t.subject !== subj) return false;
+        return true;
+      }).map(t => t.name);
+    }
+
     async function fetchServerData() {
       showLoading(true);
       hideError();
@@ -424,14 +490,18 @@
           });
         }
 
-        const rawTeacherList = teacherRows
-          .map(row => String(row[0] || "").trim())
-          .filter(name => name.length > 0);
-
         const headerKeywords = ["教員", "名前", "氏名", "教員名", "担当", "teacher", "name"];
-        const teacherList = (rawTeacherList.length > 0 && headerKeywords.some(kw => rawTeacherList[0].toLowerCase().includes(kw)))
-          ? rawTeacherList.slice(1)
-          : rawTeacherList;
+        const startIndex = (teacherRows.length > 0 && headerKeywords.some(kw => String(teacherRows[0][0] || "").trim().toLowerCase().includes(kw))) ? 1 : 0;
+
+        const teacherObjects = [];
+        for (let i = startIndex; i < teacherRows.length; i++) {
+          const row = teacherRows[i];
+          const name = String(row[0] || "").trim();
+          if (!name) continue;
+          const subject = String(row[1] || "").trim();
+          const affiliation = String(row[2] || "").trim();
+          teacherObjects.push({ name, subject, affiliation });
+        }
 
         const dataRows = (scheduleRows.length > 0 && String(scheduleRows[0][3] || "").includes("時限")) 
           ? scheduleRows.slice(1) 
@@ -474,7 +544,6 @@
           const key = `${yyyy}${mm}${dd}`;
           weekDates.push(key);
 
-          // C日課判定シートのD列（index 3）テキストのみを採用
           if (cDayMap[key]) {
             cDayTexts[d] = cDayMap[key];
           }
@@ -485,23 +554,39 @@
           const key = weekDates[d];
           const dayMatches = masterData.filter(item => item.dateKey === key);
 
-          // 後ろの行（最新）を優先してマトリクスを構成
           dayMatches.forEach(item => {
             item.teachers.forEach(teacherName => {
-              // 同一（日・時限・教員）のデータが既に存在する場合は上書き更新
               const existingIdx = slots.findIndex(s => s.day === d && s.period === item.period && s.teacher === teacherName);
-              const slotItem = {
-                day: d,
-                period: item.period,
-                teacher: teacherName,
-                class: item.className,
-                subject: item.subject,
-                hasStar: item.hasStar
-              };
               if (existingIdx !== -1) {
-                slots[existingIdx] = slotItem;
+                if (slots[existingIdx].subject === item.subject) {
+                  const classList = slots[existingIdx].classList || [slots[existingIdx].class];
+                  if (!classList.includes(item.className)) {
+                    classList.push(item.className);
+                  }
+                  slots[existingIdx].classList = classList;
+                  slots[existingIdx].class = aggregateClassNames(classList);
+                  if (item.hasStar) slots[existingIdx].hasStar = true;
+                } else {
+                  slots[existingIdx] = {
+                    day: d,
+                    period: item.period,
+                    teacher: teacherName,
+                    class: item.className,
+                    classList: [item.className],
+                    subject: item.subject,
+                    hasStar: item.hasStar
+                  };
+                }
               } else {
-                slots.push(slotItem);
+                slots.push({
+                  day: d,
+                  period: item.period,
+                  teacher: teacherName,
+                  class: item.className,
+                  classList: [item.className],
+                  subject: item.subject,
+                  hasStar: item.hasStar
+                });
               }
             });
           });
@@ -509,7 +594,17 @@
 
         const hasSatData = slots.some(s => s.day === 5);
 
-        state.teachers = teacherList.length > 0 ? teacherList : Array.from(new Set(slots.map(s => s.teacher)));
+        if (teacherObjects.length === 0) {
+          const fallbackNames = Array.from(new Set(slots.map(s => s.teacher)));
+          fallbackNames.forEach(name => {
+            teacherObjects.push({ name: name, subject: "", affiliation: "" });
+          });
+        }
+
+        state.allTeachers = teacherObjects;
+        populateSubjectFilterOptions();
+        state.teachers = filterTeachers();
+
         state.slots = slots;
         state.specialDays = specialDays;
         state.cDayTexts = cDayTexts;
@@ -553,6 +648,22 @@
     }
 
     function setupEventListeners() {
+      const affSelect = document.getElementById("affiliationFilter");
+      if (affSelect) {
+        affSelect.addEventListener("change", () => {
+          state.teachers = filterTeachers();
+          render();
+        });
+      }
+
+      const subjSelect = document.getElementById("subjectFilter");
+      if (subjSelect) {
+        subjSelect.addEventListener("change", () => {
+          state.teachers = filterTeachers();
+          render();
+        });
+      }
+
       document.getElementById("baseDate").addEventListener("change", (e) => {
         const inputVal = e.target.value;
         if (!inputVal) return;
@@ -726,25 +837,8 @@
         
         const currentMonth = targetDate.getMonth() + 1;
         const currentDay = targetDate.getDate();
-        
-        const specialOverrideVal = state.specialDays && state.specialDays[d];
-        
-        let dayLabel = days[d];
-        let isSpecialDay = false;
-
-        if (specialOverrideVal && specialOverrideVal !== "false" && specialOverrideVal !== false) {
-          isSpecialDay = true;
-          if (specialOverrideVal === true || specialOverrideVal === "C") {
-            dayLabel = "C";
-          } else {
-            dayLabel = String(specialOverrideVal);
-          }
-        }
 
         const isSaturday = (d === 5);
-        const dayBgClass = isSpecialDay 
-          ? "bg-amber-100" 
-          : (isSaturday ? "bg-indigo-200" : ((d % 2 === 0) ? "bg-blue-200" : "bg-sky-200"));
 
         for (let p = 1; p <= 6; p++) {
           const rowKey = `${d}-${p}`;
@@ -760,8 +854,6 @@
             const tdDay = document.createElement("td");
             tdDay.rowSpan = 6;
             
-            const isCDay = state.specialDays[d];
-            // C日課判定シートのD列で設定されたテキストのみを表示
             const cText = state.cDayTexts[d] || "";
 
             const dayBgClass = cText 
@@ -771,7 +863,6 @@
             tdDay.className = `sticky left-0 ${dayBgClass} z-10 border-r-2 border-slate-400 align-middle shadow-[1px_0_3px_rgba(0,0,0,0.1)] p-0`;
             tdDay.style.cssText = dayColStyle;
             
-            /* バッジ装飾を廃止し、シンプルな赤太字テキストで表示 */
             const cDayAddon = cText 
               ? `<span class="text-red-600 font-extrabold text-[10px] mt-0.5 whitespace-nowrap">【${cText}】</span>` 
               : '';
@@ -790,6 +881,10 @@
           }
 
           const tdPeriod = document.createElement("td");
+          const dayBgClass = state.cDayTexts[d] 
+            ? "bg-amber-100" 
+            : (isSaturday ? "bg-indigo-200" : ((d % 2 === 0) ? "bg-blue-200" : "bg-sky-200"));
+
           tdPeriod.className = `sticky ${isRowSelected ? 'bg-amber-300' : dayBgClass} hover:bg-amber-200 cursor-pointer z-10 font-black text-slate-800 border-r-2 border-slate-400 align-middle text-center shadow-[1px_0_3px_rgba(0,0,0,0.1)] p-0 transition-colors`;
           tdPeriod.style.cssText = `${periodColStyle} left: ${dayWidth}px;`;
           tdPeriod.title = `${days[d]}曜 ${p}時限目をハイライト`;
@@ -936,7 +1031,19 @@
 <body>
 
 <header>
-    <div style="display:flex; align-items:center; gap:20px;">
+    <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <div style="display:flex; align-items:center; gap:6px;">
+            <span style="font-size:1vw; font-weight:bold;">所属:</span>
+            <select id="affiliation-select" onchange="onFilterChange()">
+                <option value="">すべて</option>
+                <option value="一高">一高</option>
+                <option value="附属中">附属中</option>
+            </select>
+            <span style="font-size:1vw; font-weight:bold;">教科:</span>
+            <select id="subject-select" onchange="onFilterChange()">
+                <option value="">すべて</option>
+            </select>
+        </div>
         <select id="teacher-select" onchange="render()">
             <option value="">教員を選択してください</option>
         </select>
@@ -959,6 +1066,7 @@ const CONFIG = {
 };
 
 let masterData = [];
+let allTeachersData = [];
 let weekOffset = 0;
 const dayLabels = ['日', '月', '火', '水', '木', '金', '土'];
 
@@ -1032,21 +1140,92 @@ async function init() {
 async function loadTeachers() {
     try {
         const rows = await fetchSheetJsonp(CONFIG.teacherSheetName);
-        const select = document.getElementById('teacher-select');
-        
-        rows.forEach(row => {
+        const headerKeywords = ["教員", "名前", "氏名", "教員名", "担当", "teacher", "name"];
+        const startIndex = (rows.length > 0 && headerKeywords.some(kw => String(rows[0][0] || "").trim().toLowerCase().includes(kw))) ? 1 : 0;
+
+        allTeachersData = [];
+        for (let i = startIndex; i < rows.length; i++) {
+            const row = rows[i];
             const name = String(row[0] || "").trim();
+            if (!name) continue;
             const subject = String(row[1] || "").trim();
-            
-            if (!name) return;
-            const option = document.createElement('option');
-            option.value = name;
-            option.textContent = subject ? `[${subject}] ${name}` : name;
-            select.appendChild(option);
-        });
+            const affiliation = String(row[2] || "").trim();
+            allTeachersData.push({ name, subject, affiliation });
+        }
+
+        populateSubjectSelect();
+        updateTeacherSelect();
     } catch (err) {
         console.error("教員リスト取得エラー:", err);
     }
+}
+
+function populateSubjectSelect() {
+    const subjSelect = document.getElementById('subject-select');
+    if (!subjSelect) return;
+    const currentVal = subjSelect.value;
+    subjSelect.innerHTML = '<option value="">すべて</option>';
+    const subjects = Array.from(new Set(allTeachersData.map(t => t.subject).filter(Boolean)));
+    subjects.forEach(subj => {
+        const option = document.createElement('option');
+        option.value = subj;
+        option.textContent = subj;
+        subjSelect.appendChild(option);
+    });
+    subjSelect.value = currentVal;
+}
+
+function updateTeacherSelect() {
+    const affSelect = document.getElementById('affiliation-select');
+    const subjSelect = document.getElementById('subject-select');
+    const teacherSelect = document.getElementById('teacher-select');
+    if (!teacherSelect) return;
+
+    const aff = affSelect ? affSelect.value : "";
+    const subj = subjSelect ? subjSelect.value : "";
+    const previousSelectedTeacher = teacherSelect.value;
+
+    teacherSelect.innerHTML = '';
+
+    const filteredTeachers = allTeachersData.filter(t => {
+        if (aff === "一高") {
+            if (t.affiliation !== "" && t.affiliation !== "兼務") return false;
+        } else if (aff === "附属中") {
+            if (t.affiliation !== "附属中" && t.affiliation !== "兼務") return false;
+        }
+        if (subj && t.subject !== subj) return false;
+        return true;
+    });
+
+    if (filteredTeachers.length === 0) {
+        const option = document.createElement('option');
+        option.value = "";
+        option.textContent = "該当する教員はいません";
+        teacherSelect.appendChild(option);
+    } else {
+        const defaultOption = document.createElement('option');
+        defaultOption.value = "";
+        defaultOption.textContent = "教員を選択してください";
+        teacherSelect.appendChild(defaultOption);
+
+        filteredTeachers.forEach(t => {
+            const option = document.createElement('option');
+            option.value = t.name;
+            option.textContent = t.subject ? `[${t.subject}] ${t.name}` : t.name;
+            teacherSelect.appendChild(option);
+        });
+    }
+
+    if (filteredTeachers.some(t => t.name === previousSelectedTeacher)) {
+        teacherSelect.value = previousSelectedTeacher;
+    } else {
+        teacherSelect.value = "";
+    }
+    render();
+}
+
+function onFilterChange() {
+    updateTeacherSelect();
 }
 
 async function loadSchedule() {
@@ -1087,6 +1266,34 @@ async function loadSchedule() {
     } catch (err) {
         console.error("時間割データ取得エラー:", err);
     }
+}
+
+function aggregateClassNames(classList) {
+    const unique = [];
+    classList.forEach(c => {
+        if (c && !unique.includes(c)) {
+            unique.push(c);
+        }
+    });
+    if (unique.length === 0) return "";
+    unique.sort();
+    if (unique.length === 1) return unique[0];
+
+    let prefix = unique[0];
+    for (let i = 1; i < unique.length; i++) {
+        while (unique[i].indexOf(prefix) !== 0) {
+            prefix = prefix.substring(0, prefix.length - 1);
+            if (prefix === "") break;
+        }
+    }
+
+    if (prefix.length > 0) {
+        const suffixes = unique.map(c => c.slice(prefix.length));
+        if (suffixes.every(s => s.length > 0)) {
+            return prefix + suffixes.join('');
+        }
+    }
+    return unique.join('');
 }
 
 function render() {
@@ -1137,20 +1344,25 @@ function render() {
     for (let p = 1; p <= 7; p++) {
         html += `<div class="cell period-cell">${p}</div>`;
         weekKeys.forEach(key => {
-            // 後ろ（最新行）優先で検索
-            const match = masterData.slice().reverse().find(item => 
+            const matches = masterData.slice().reverse().filter(item => 
                 item.dateKey === key && 
                 item.period === p && 
                 item.teachers.includes(targetTeacher)
             );
             
             let content = "";
-            if (match) {
-                const classAttr = match.isChanged ? 'subject changed' : 'subject normal';
-                const displayText = match.isChanged ? '☆' + match.subject : match.subject;
+            if (matches.length > 0) {
+                const targetSubject = matches[0].subject;
+                const sameSubjectMatches = matches.filter(item => item.subject === targetSubject);
+                const isChanged = sameSubjectMatches.some(item => item.isChanged);
+                const classNames = sameSubjectMatches.map(item => item.className);
+                const aggregatedClass = aggregateClassNames(classNames);
+
+                const classAttr = isChanged ? 'subject changed' : 'subject normal';
+                const displayText = isChanged ? '☆' + targetSubject : targetSubject;
                 content = `
                     <div class="${classAttr}">${displayText}</div>
-                    <div class="class-name">${match.className}</div>
+                    <div class="class-name">${aggregatedClass}</div>
                 `;
             }
             html += `<div class="cell">${content}</div>`;
@@ -1327,7 +1539,6 @@ window.onload = init;
             color: #e5e7eb;
         }
 
-        /* 赤太字テキストスタイル */
         .c-tag-highlight {
             color: #ef4444;
             font-weight: 800;
@@ -1631,7 +1842,6 @@ window.onload = init;
 
         async function fetchSpreadsheetData() {
             try {
-                /* C日課判定シートのD列のみを参照するように修正 */
                 const [rows, cDayRows] = await Promise.all([
                     fetchSheetJsonp(CONFIG.sheetName),
                     fetchSheetJsonp('C日課判定')
@@ -1641,7 +1851,7 @@ window.onload = init;
                 if (Array.isArray(cDayRows)) {
                     cDayRows.forEach(row => {
                         const rawDateStr = String(row[0] || "").trim();
-                        const textVal = String(row[3] || "").trim(); // D列
+                        const textVal = String(row[3] || "").trim();
                         const dateKey = parseDateTo8DigitKey(rawDateStr);
                         if (dateKey && textVal) {
                             cDayMap[dateKey] = textVal;
@@ -1693,7 +1903,6 @@ window.onload = init;
         function renderAll() {
             const targetKey = getDateKey(currentDate);
 
-            // C日課判定シートのD列（index 3）に設定されているテキストのみを参照
             const cTextFromMap = window.globalCDayMap ? window.globalCDayMap[targetKey] : '';
 
             const dayName = dayLabels[currentDate.getDay()];
@@ -1716,7 +1925,6 @@ window.onload = init;
                 for (let p = 1; p <= 6; p++) {
                     html += `<div class="cell period-cell">${p}</div>`;
                     config.classes.forEach(cls => {
-                        // シートの下部（最新行）を優先して取得
                         const match = masterData.slice().reverse().find(item => 
                             item.dateKey === targetKey && 
                             item.period === p && 
@@ -2086,42 +2294,40 @@ window.onload = init;
                 const parts = futureKey.split('-');
                 const targetDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
                 
-                const nowDay = now.getDay();
-                const nowStart = new Date(now);
-                nowStart.setDate(now.getDate() - (nowDay === 0 ? 6 : nowDay - 1));
-                nowStart.setHours(0,0,0,0);
+                const dayIdx = targetDate.getDay();
+                const diff = (dayIdx === 0 ? -6 : 1 - dayIdx);
+                const targetMonday = new Date(targetDate);
+                targetMonday.setDate(targetMonday.getDate() + diff);
 
-                const targetDay = targetDate.getDay();
-                const targetStart = new Date(targetDate);
-                targetStart.setDate(targetDate.getDate() - (targetDay === 0 ? 6 : targetDay - 1));
-                targetStart.setHours(0,0,0,0);
+                const currentMonday = new Date(now);
+                const currentDayIdx = currentMonday.getDay();
+                const currentDiff = (currentDayIdx === 0 ? -6 : 1 - currentDayIdx);
+                currentMonday.setDate(currentMonday.getDate() + currentDiff);
 
-                const diffMs = targetStart.getTime() - nowStart.getTime();
-                weekOffset = Math.round(diffMs / (7 * 24 * 60 * 60 * 1000));
+                const diffTime = targetMonday.getTime() - currentMonday.getTime();
+                weekOffset = Math.round(diffTime / (1000 * 60 * 60 * 24 * 7));
             }
         }
 
         function render() {
             const targetRoom = document.getElementById('room-select').value;
             const container = document.getElementById('grid-container');
-            const now = new Date();
+            const clock = document.getElementById('current-clock');
             
-            document.getElementById('current-clock').innerText = now.toLocaleDateString('ja-JP', { 
-                month:'long', day:'numeric', weekday:'short' 
-            });
+            const now = new Date();
+            clock.innerText = now.toLocaleDateString('ja-JP', { month:'numeric', day:'numeric', weekday:'short' });
 
-            if (!targetRoom) {
-                container.innerHTML = '<div style="grid-column: 1 / -1; display: flex; justify-content: center; align-items: center; font-size: 1.5vw; color: #666;">部屋を選択してください</div>';
-                return;
+            if (!targetRoom) { 
+                container.innerHTML = ""; 
+                return; 
             }
 
             const startOfWeek = new Date();
             const dayIdx = startOfWeek.getDay();
             const diff = (dayIdx === 0 ? -6 : 1 - dayIdx) + (weekOffset * 7);
             startOfWeek.setDate(startOfWeek.getDate() + diff);
-            startOfWeek.setHours(0,0,0,0);
 
-            let html = '<div class="cell header-cell"><div class="header-date" style="font-size:1.2vw">時限</div></div>';
+            let html = '<div class="cell header-cell">時限</div>';
             const weekKeys = [];
 
             for (let i = 0; i < 6; i++) {
@@ -2130,10 +2336,8 @@ window.onload = init;
                 
                 const key = normalizeDateStr(d.getFullYear(), d.getMonth() + 1, d.getDate());
                 weekKeys.push(key);
-
-                // 日付キー（YYYYMMDD形式に変換）でC日課判定シートのD列の値を検索
-                const rawKey = key.replace(/-/g, '');
-                const cDayText = (window.roomCDayMap && (window.roomCDayMap[key] || window.roomCDayMap[rawKey])) ? (window.roomCDayMap[key] || window.roomCDayMap[rawKey]) : '';
+                
+                const cDayText = (window.roomCDayMap && window.roomCDayMap[key]) ? window.roomCDayMap[key] : '';
                 const dayLabel = dayLabels[d.getDay()];
                 const isToday = d.toDateString() === now.toDateString();
                 
@@ -2149,22 +2353,21 @@ window.onload = init;
             for (let p = 1; p <= 7; p++) {
                 html += `<div class="cell period-cell">${p}</div>`;
                 weekKeys.forEach(key => {
-                    // 最新行（後勝）優先でマッチ
                     const match = masterData.slice().reverse().find(item => 
                         item.dateKey === key && 
                         item.period === p && 
                         item.rooms.includes(targetRoom)
                     );
-
-                    let content = '';
+                    
+                    let content = "";
                     if (match) {
                         const classAttr = match.isChanged ? 'subject changed' : 'subject normal';
-                        const text = match.isChanged ? '☆' + match.subject : match.subject;
+                        const displayText = match.isChanged ? '☆' + match.subject : match.subject;
                         content = `
-                            <div class="${classAttr}">${text}</div>
+                            <div class="${classAttr}">${displayText}</div>
                             <div class="info-row">
-                                <div class="class-name">${match.className}</div>
-                                <div class="teacher-name" title="${match.teacher}">${match.teacher}</div>
+                                <span class="class-name">${match.className}</span>
+                                <span class="teacher-name">${match.teacher}</span>
                             </div>
                         `;
                     }
@@ -2174,7 +2377,7 @@ window.onload = init;
             container.innerHTML = html;
         }
 
-        function updateWeek(val) { weekOffset += val; render(); }
+        function updateWeek(v) { weekOffset += v; render(); }
         function resetWeek() { weekOffset = 0; render(); }
         window.onload = init;
     </script>
@@ -2182,53 +2385,62 @@ window.onload = init;
 </html></template>
 
   <script>
-    let activeTabIndex = 0;
-    const loadedIframes = [false, false, false, false];
-
-    function loadTabContent(index) {
-      if (loadedIframes[index]) return;
-      
-      const iframe = document.getElementById(`iframe-${index}`);
-      const template = document.getElementById(`template-html-${index}`);
-      
-      if (iframe && template) {
-        iframe.srcdoc = template.innerHTML;
-        loadedIframes[index] = true;
-      }
-    }
+    // 読み込み済みタブを記録するSet
+    const loadedTabs = new Set();
 
     function switchTab(index) {
-      activeTabIndex = index;
-
-      for (let i = 0; i < 4; i++) {
-        const btn = document.getElementById(`tab-btn-${i}`);
-        const panel = document.getElementById(`tab-panel-${i}`);
-
+      document.querySelectorAll('.tab-btn').forEach((btn, i) => {
         if (i === index) {
           btn.classList.add('active');
-          panel.classList.remove('hidden');
-          loadTabContent(i);
         } else {
           btn.classList.remove('active');
+        }
+      });
+
+      document.querySelectorAll('.tab-panel').forEach((panel, i) => {
+        if (i === index) {
+          panel.classList.remove('hidden');
+        } else {
           panel.classList.add('hidden');
         }
-      }
+      });
+
+      loadTabContent(index);
     }
 
-    /**
-     * 現在アクティブなタブ画面（またはコンテナ）を全画面化（Fullscreen API）
-     */
+    function loadTabContent(index) {
+      // 既にロード済みのタブであれば何もしない（状態リセットを防止）
+      if (loadedTabs.has(index)) return;
+
+      const iframe = document.getElementById(`iframe-${index}`);
+      if (!iframe) return;
+
+      const template = document.getElementById(`template-html-${index}`);
+      if (!template) return;
+
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+      
+      iframeDoc.open();
+      iframeDoc.write(template.innerHTML);
+      iframeDoc.close();
+
+      loadedTabs.add(index);
+    }
+
     function toggleFullscreen() {
-      const activePanel = document.getElementById(`tab-panel-${activeTabIndex}`);
+      const activePanel = document.querySelector('.tab-panel:not(.hidden)');
       if (!activePanel) return;
 
+      const iframe = activePanel.querySelector('iframe');
+      if (!iframe) return;
+
       if (!document.fullscreenElement) {
-        if (activePanel.requestFullscreen) {
-          activePanel.requestFullscreen();
-        } else if (activePanel.webkitRequestFullscreen) { /* Safari */
-          activePanel.webkitRequestFullscreen();
-        } else if (activePanel.msRequestFullscreen) { /* IE11 */
-          activePanel.msRequestFullscreen();
+        if (iframe.requestFullscreen) {
+          iframe.requestFullscreen();
+        } else if (iframe.webkitRequestFullscreen) {
+          iframe.webkitRequestFullscreen();
+        } else if (iframe.msRequestFullscreen) {
+          iframe.msRequestFullscreen();
         }
       } else {
         if (document.exitFullscreen) {
@@ -2239,7 +2451,7 @@ window.onload = init;
 
     window.addEventListener('DOMContentLoaded', () => {
       lucide.createIcons();
-      switchTab(0); // 初期タブ（教員週間一覧）を表示
+      loadTabContent(0);
     });
   </script>
 </body>
