@@ -774,6 +774,8 @@
         return;
       }
 
+      state.hasSaturday = state.slots.some(s => s.day === 5 && teachers.includes(s.teacher));
+
       const zoom = state.zoom;
       
       const dayWidth = Math.round(20 * zoom);
@@ -1649,7 +1651,7 @@ window.onload = init;
                 min-height: 320px;
             }
             .table-container {
-                overflow-x: auto;
+                overflow-x-auto;
                 -webkit-overflow-scrolling: touch;
             }
             .subject-text { 
